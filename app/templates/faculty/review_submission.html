@@ -1,0 +1,825 @@
+{% extends "base.html" %}
+
+{% block title %}Review & AI Evaluation: {{ student.name }} – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Top Navigation & Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('faculty.assignment_list') }}" style="color: var(--slate-500);">Assignments</a> / 
+      <a href="{{ url_for('faculty.assignment_submissions', assignment_id=assignment.assignment_id) }}" style="color: var(--slate-500);">
+        {{ assignment.title }} Submissions
+      </a> / 
+      <span>Handwriting Extraction Review</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+      <h1 class="page-header-title">
+        Handwriting Extraction Review & AI Evaluation
+      </h1>
+      {% if submission.is_published %}
+        <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+      {% elif submission.status == 'Review Required' or submission.has_pending_faculty_review %}
+        <span class="badge badge-review-required"><span class="badge-dot"></span> Needs Review</span>
+      {% elif submission.status == 'Faculty Reviewed' %}
+        <span class="badge" style="background: var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200); font-size: 0.75rem;"><span class="badge-dot"></span> Faculty Reviewed</span>
+      {% elif submission.status == 'Processing' %}
+        <span class="badge badge-processing"><span class="badge-dot"></span> Processing</span>
+      {% elif submission.status == 'Failed' %}
+        <span class="badge badge-failed"><span class="badge-dot"></span> Failed</span>
+      {% else %}
+        <span class="badge badge-uploaded"><span class="badge-dot"></span> {{ submission.status }}</span>
+      {% endif %}
+    </div>
+    <p class="page-header-desc">
+      Student: <strong style="color: var(--slate-800);">{{ student.name }}</strong> ({{ student.class_name }}) &bull; Course: <strong style="color: var(--slate-800);">{{ assignment.title }}</strong> &bull; Submitted: {{ submission.submission_date.strftime('%b %d, %Y at %I:%M %p') }}
+    </p>
+  </div>
+
+  <!-- Header Action Toolbar -->
+  <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+    {% if evaluations %}
+      <!-- Bulk Approve All AI Scores -->
+      <form action="{{ url_for('faculty.approve_all_evaluations', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Approve AI scores for all questions?');">
+        <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+          Approve All AI Scores
+        </button>
+      </form>
+
+      <!-- Publish / Unpublish Toggle -->
+      {% if submission.is_published %}
+        <form action="{{ url_for('faculty.unpublish_submission_result', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+          <button type="submit" class="btn btn-secondary btn-sm">
+            Unpublish Result
+          </button>
+        </form>
+      {% else %}
+        <form action="{{ url_for('faculty.publish_submission_result', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+          <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+            Publish to Student
+          </button>
+        </form>
+      {% endif %}
+
+      <!-- Printable Formal Grade Report -->
+      <a href="{{ url_for('faculty.submission_report', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank">
+        Grade Report ↗
+      </a>
+    {% endif %}
+
+    <!-- Run AI Evaluation Button -->
+    <form action="{{ url_for('faculty.evaluate_submission', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+      <button type="submit" class="btn btn-primary btn-sm">
+        {% if evaluations %}Re-Run AI{% else %}Run AI Evaluation{% endif %}
+      </button>
+    </form>
+
+    <a href="{{ url_for('faculty.download_submission', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="Download original student PDF">
+      PDF ↗
+    </a>
+
+    <a href="{{ url_for('faculty.assignment_submissions', assignment_id=assignment.assignment_id) }}" class="btn btn-secondary btn-sm">
+      Back
+    </a>
+  </div>
+</div>
+
+<!-- Restrained Information Metric Strip -->
+<div class="metric-strip">
+  <div class="metric-item">
+    <div class="metric-label">Questions Matched</div>
+    <div class="metric-num">{{ matched_answers|length }} <span style="font-size: 0.9rem; font-weight: 400; color: var(--slate-400);">/ {{ questions|length }}</span></div>
+    <div class="metric-sub">Mapped Q&A blocks</div>
+  </div>
+
+  <div class="metric-item">
+    <div class="metric-label">AI Score</div>
+    <div class="metric-num" style="color: var(--primary-700);">
+      {% if evaluations %}
+        {{ submission.total_ai_score }} <span style="font-size: 0.9rem; font-weight: 400; color: var(--slate-400);">/ {{ assignment.total_marks }}</span>
+      {% else %}
+        <span style="font-size: 1.1rem; color: var(--slate-400);">Pending AI</span>
+      {% endif %}
+    </div>
+    <div class="metric-sub">Model suggested</div>
+  </div>
+
+  <div class="metric-item">
+    <div class="metric-label">Final Faculty Score</div>
+    <div class="metric-num" style="color: var(--emerald-700);">
+      {% if evaluations %}
+        {{ submission.total_final_score }} <span style="font-size: 0.9rem; font-weight: 400; color: var(--slate-400);">/ {{ assignment.total_marks }}</span>
+      {% else %}
+        <span style="font-size: 1.1rem; color: var(--slate-400);">--</span>
+      {% endif %}
+    </div>
+    <div class="metric-sub">Official awarded</div>
+  </div>
+
+  <div class="metric-item">
+    <div class="metric-label">OCR Confidence</div>
+    {% set avg_conf = submission.average_confidence %}
+    <div class="metric-num" style="color: {% if avg_conf >= 75 %}var(--emerald-700){% elif avg_conf >= 55 %}var(--amber-700){% else %}var(--rose-700){% endif %};">
+      {{ avg_conf }}%
+    </div>
+    <div class="metric-sub">Average recognition</div>
+  </div>
+
+  <div class="metric-item">
+    <div class="metric-label">Result Status</div>
+    <div style="margin-top: 0.2rem;">
+      {% if submission.is_published %}
+        <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+      {% elif submission.evaluations %}
+        <span class="badge badge-review-required"><span class="badge-dot"></span> Moderation Draft</span>
+      {% else %}
+        <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.75rem;">Not Evaluated</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- SECTION 1: AI SEMANTIC EVALUATION & FACULTY MODERATION -->
+<!-- ========================================================================= -->
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin: 0; color: var(--slate-900);">
+        AI Evaluation & Grading Moderation
+      </h2>
+      <p style="margin: 0; font-size: 0.8rem; color: var(--slate-500);">Review AI scoring breakdowns, rubrics, and apply faculty overrides</p>
+    </div>
+    {% if not evaluations %}
+      <form action="{{ url_for('faculty.evaluate_submission', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+        <button type="submit" class="btn btn-primary btn-sm">
+          Run AI Evaluation Engine
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if evaluations %}
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      {% for ev in evaluations %}
+        {% set q = ev.question %}
+        <div class="card" style="border-left: 3px solid {% if ev.evaluation_status == 'Approved' %}var(--emerald-600){% elif ev.evaluation_status == 'Modified' %}var(--primary-600){% elif ev.needs_faculty_review %}var(--amber-600){% else %}var(--slate-400){% endif %};">
+          
+          <!-- Card Header -->
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 700; color: var(--slate-900); font-size: 0.95rem;">
+                Question {{ q.question_number }}
+              </span>
+            </div>
+
+            <!-- Header Badges -->
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem;">
+                Max: {{ ev.maximum_marks }} pts
+              </span>
+
+              <!-- Status Badge -->
+              {% if ev.evaluation_status == 'Approved' %}
+                <span class="badge badge-published"><span class="badge-dot"></span> Approved</span>
+              {% elif ev.evaluation_status == 'Modified' %}
+                <span class="badge" style="background: var(--primary-50); color: var(--primary-700); border: 1px solid var(--primary-200); font-size: 0.75rem;"><span class="badge-dot"></span> Modified</span>
+              {% elif ev.evaluation_status == 'Failed' %}
+                <span class="badge" style="background: var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200); font-size: 0.75rem;"><span class="badge-dot" style="background: var(--rose-500);"></span> AI Failed</span>
+              {% elif ev.needs_faculty_review %}
+                <span class="badge badge-review-required"><span class="badge-dot"></span> Needs Review</span>
+              {% else %}
+                <span class="badge badge-completed">AI Evaluated</span>
+              {% endif %}
+
+              <!-- AI Confidence Badge -->
+              <span class="badge" style="background: #ffffff; color: var(--slate-600); border: 1px solid var(--border-subtle); font-size: 0.75rem;">
+                Confidence: <strong style="color: var(--slate-900); font-family: var(--font-mono);">{{ (ev.ai_confidence * 100)|round(1) if ev.ai_confidence <= 1.0 else ev.ai_confidence }}%</strong>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body" style="padding: 1.25rem;">
+            
+            <!-- Question Prompt Box -->
+            <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--slate-50); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+                Question Prompt
+              </div>
+              <div style="font-size: 0.88rem; color: var(--slate-800); line-height: 1.5;">
+                {{ q.question_text }}
+              </div>
+              {% if q.supportive_answer %}
+                <details style="margin-top: 0.5rem; font-size: 0.8rem;">
+                  <summary style="cursor: pointer; font-weight: 600; color: var(--primary-700); user-select: none;">
+                    View Reference / Supportive Answer
+                  </summary>
+                  <div style="margin-top: 0.35rem; padding: 0.65rem 0.85rem; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); font-size: 0.82rem; color: var(--slate-700); line-height: 1.45;">
+                    {{ q.supportive_answer }}
+                  </div>
+                </details>
+              {% endif %}
+            </div>
+
+            <!-- Student Transcribed Answer -->
+            <div style="margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em;">
+                  Recognized Student Answer (OCR Transcript)
+                </div>
+                {% if ev.extracted_answer and ev.extracted_answer.strip() %}
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="copyTextToClipboard('ocr-ev-text-{{ ev.evaluation_id }}', this)" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">
+                    Copy Text
+                  </button>
+                {% endif %}
+              </div>
+              {% if ev.extracted_answer and ev.extracted_answer.strip() %}
+                <textarea id="ocr-ev-text-{{ ev.evaluation_id }}" readonly style="width: 100%; padding: 0.75rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; color: var(--slate-800); max-height: 160px; resize: vertical;">{{ ev.extracted_answer }}</textarea>
+              {% else %}
+                <div style="padding: 0.75rem; background: var(--rose-50); border: 1px solid var(--rose-200); border-radius: var(--radius-sm); color: var(--rose-700); font-size: 0.82rem;">
+                  No handwritten student answer was mapped to this question.
+                </div>
+              {% endif %}
+            </div>
+
+            {% if ev.evaluation_status == 'Failed' and ev.error_message %}
+              <div style="margin-bottom: 1rem; padding: 0.65rem 0.85rem; background: var(--rose-50); border: 1px solid var(--rose-200); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--rose-800);">
+                <strong>AI Evaluation Provider Error:</strong> {{ ev.error_message }}
+              </div>
+            {% endif %}
+
+            <!-- Score Summary & AI Breakdown -->
+            <div style="display: grid; grid-template-columns: 180px 1fr; gap: 1rem; margin-bottom: 1rem; align-items: stretch;">
+              <!-- Score Box -->
+              <div style="background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); margin-bottom: 0.2rem; letter-spacing: 0.05em;">
+                  Awarded Score
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: {% if ev.final_score is not none %}{% if ev.final_score >= ev.maximum_marks * 0.75 %}var(--emerald-700){% elif ev.final_score >= ev.maximum_marks * 0.4 %}var(--amber-700){% else %}var(--rose-700){% endif %}{% else %}var(--rose-600){% endif %}; line-height: 1.1; font-family: var(--font-mono);">
+                  {% if ev.final_score is not none %}{{ ev.final_score }}{% else %}<span style="font-size: 1rem; color: var(--rose-600);">Failed</span>{% endif %}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.2rem;">
+                  {% if ev.final_score is not none %}out of {{ ev.maximum_marks }} pts ({{ ev.score_percentage }}%){% else %}Technical Error (Requires Review){% endif %}
+                </div>
+                {% if ev.faculty_score is not none %}
+                  <div style="margin-top: 0.4rem; font-size: 0.7rem; color: var(--primary-700); background: var(--primary-50); padding: 2px 6px; border-radius: var(--radius-sm); font-weight: 600;">
+                    AI Suggested: {{ ev.ai_score if ev.ai_score is not none else 'None' }}
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- AI Feedback & Concept Badges -->
+              <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                <!-- Feedback Text -->
+                <div style="padding: 0.75rem 0.85rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+                  <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-600); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+                    AI Evaluation Guidance & Feedback
+                  </div>
+                  <div style="font-size: 0.85rem; color: var(--slate-800); line-height: 1.45;">
+                    {{ ev.final_feedback or 'Evaluation generated successfully.' }}
+                  </div>
+                </div>
+
+                <!-- Strengths & Missing Elements Badges -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+                  <!-- Strengths -->
+                  <div style="padding: 0.65rem 0.75rem; background: var(--emerald-50); border: 1px solid var(--emerald-200); border-radius: var(--radius-sm);">
+                    <div style="font-size: 0.68rem; font-weight: 600; color: var(--emerald-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                      Demonstrated Strengths
+                    </div>
+                    {% if ev.strengths_list %}
+                      <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--emerald-900); line-height: 1.4;">
+                        {% for s in ev.strengths_list %}
+                          <li>{{ s }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <span style="font-size: 0.75rem; color: var(--emerald-700);">No specific strengths noted.</span>
+                    {% endif %}
+                  </div>
+
+                  <!-- Missing Elements -->
+                  <div style="padding: 0.65rem 0.75rem; background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-sm);">
+                    <div style="font-size: 0.68rem; font-weight: 600; color: var(--amber-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                      Missing Elements
+                    </div>
+                    {% if ev.missing_elements_list %}
+                      <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--amber-900); line-height: 1.4;">
+                        {% for m in ev.missing_elements_list %}
+                          <li>{{ m }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <span style="font-size: 0.75rem; color: var(--amber-700);">None identified.</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rubric Criteria Breakdown Table -->
+            {% if ev.criteria_list %}
+              <div style="margin-bottom: 1rem;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.3rem;">
+                  Rubric Criteria Breakdown
+                </div>
+                <div style="border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                    <thead>
+                      <tr style="background: var(--slate-50); text-align: left; color: var(--slate-700);">
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle);">Criterion</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle); width: 80px; text-align: center;">Max</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle); width: 80px; text-align: center;">Awarded</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle); width: 80px; text-align: center;">Status</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle);">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for c in ev.criteria_list %}
+                        <tr style="border-bottom: 1px solid var(--border-subtle);">
+                          <td style="padding: 0.4rem 0.65rem; font-weight: 500; color: var(--slate-800);">{{ c.name }}</td>
+                          <td style="padding: 0.4rem 0.65rem; text-align: center; color: var(--slate-500); font-family: var(--font-mono);">{{ c.max_marks }}</td>
+                          <td style="padding: 0.4rem 0.65rem; text-align: center; font-weight: 600; color: var(--primary-700); font-family: var(--font-mono);">{{ c.awarded_marks }}</td>
+                          <td style="padding: 0.4rem 0.65rem; text-align: center;">
+                            {% if c.status == 'full' %}
+                              <span class="badge" style="background: var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200); font-size: 0.7rem;">Full</span>
+                            {% elif c.status == 'partial' %}
+                              <span class="badge" style="background: var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200); font-size: 0.7rem;">Partial</span>
+                            {% else %}
+                              <span class="badge" style="background: var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200); font-size: 0.7rem;">None</span>
+                            {% endif %}
+                          </td>
+                          <td style="padding: 0.4rem 0.65rem; color: var(--slate-600); font-size: 0.78rem;">{{ c.reason }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Faculty Action & Override Controls -->
+            <div style="padding: 0.85rem 1rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.65rem;">
+                <div style="font-size: 0.8rem; font-weight: 600; color: var(--slate-800);">
+                  Faculty Grade Moderation & Override
+                </div>
+                <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                  <!-- Quick Approve Button -->
+                  {% if ev.ai_score is not none %}
+                  <form action="{{ url_for('faculty.approve_evaluation', evaluation_id=ev.evaluation_id) }}" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; color: var(--emerald-700);">
+                      ✓ Quick Approve ({{ ev.ai_score }} pts)
+                    </button>
+                  </form>
+                  {% endif %}
+                  <!-- Flag for Review -->
+                  <form action="{{ url_for('faculty.flag_evaluation_review', evaluation_id=ev.evaluation_id) }}" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; color: var(--amber-700);">
+                      Flag Review
+                    </button>
+                  </form>
+                  <!-- Re-evaluate Individual Question -->
+                  <form action="{{ url_for('faculty.retry_evaluation', evaluation_id=ev.evaluation_id) }}" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+                      Re-Run Q{{ q.question_number }}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Override Form -->
+              <form action="{{ url_for('faculty.modify_evaluation', evaluation_id=ev.evaluation_id) }}" method="POST" style="margin: 0;">
+                <div style="display: grid; grid-template-columns: 140px 1fr auto; gap: 0.65rem; align-items: end;">
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 600; color: var(--slate-600); display: block; margin-bottom: 0.2rem;">
+                      Marks (Max {{ ev.maximum_marks }})
+                    </label>
+                    <input type="number" step="0.5" min="0" max="{{ ev.maximum_marks }}" name="faculty_score" value="{{ ev.final_score if ev.final_score is not none else '' }}" class="form-control" style="font-size: 0.82rem; padding: 0.35rem 0.5rem; font-family: var(--font-mono);" required>
+                  </div>
+                  <div>
+                    <label style="font-size: 0.72rem; font-weight: 600; color: var(--slate-600); display: block; margin-bottom: 0.2rem;">
+                      Feedback Note (Optional)
+                    </label>
+                    <input type="text" name="faculty_feedback" value="{{ ev.faculty_feedback or '' }}" placeholder="Add personalized instructor note..." class="form-control" style="font-size: 0.82rem; padding: 0.35rem 0.5rem;">
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.35rem 0.85rem; font-size: 0.8rem; white-space: nowrap;">
+                    Save Override
+                  </button>
+                </div>
+              </form>
+            </div>
+
+          </div>
+        </div>
+      {% endfor %}
+
+      <!-- Grounded Overall Evaluation Summary & Instructor Feedback Card -->
+      {% set res = submission.result %}
+      <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--slate-900);">Final Result & Grounded Overall Summary</h3>
+            <p style="margin: 0; font-size: 0.75rem; color: var(--slate-500);">Aggregated from approved question-level scores and feedback</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.85rem;">
+            <div style="text-align: right;">
+              <div style="font-size: 1.15rem; font-weight: 700; color: var(--emerald-700); line-height: 1; font-family: var(--font-mono);">
+                {{ submission.total_final_score }} <span style="font-size: 0.8rem; font-weight: 400; color: var(--slate-400);">/ {{ submission.total_maximum_marks }} pts</span>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.15rem;">
+                {{ submission.percentage }}% &bull; Grade: <strong style="color: var(--primary-700);">{{ res.grade_letter if res else 'N/A' }}</strong>
+              </div>
+            </div>
+            {% if submission.is_published %}
+              <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+            {% else %}
+              <form action="{{ url_for('faculty.publish_submission_result', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+                <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+                  Publish Result
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card-body" style="padding: 1.25rem;">
+          <!-- Grounded Overall Summary Text -->
+          {% if res and res.overall_feedback %}
+            <div style="padding: 0.75rem 0.85rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 0.85rem; font-size: 0.85rem; line-height: 1.5; color: var(--slate-800);">
+              <strong style="color: var(--slate-900);">Overall Performance Summary:</strong> {{ res.overall_feedback }}
+            </div>
+          {% endif %}
+
+          <!-- Key Strengths & Growth Areas -->
+          {% if res and (res.strengths_list or res.improvements_list) %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem;">
+              <div style="padding: 0.75rem; background: var(--emerald-50); border: 1px solid var(--emerald-200); border-radius: var(--radius-sm);">
+                <div style="font-size: 0.7rem; font-weight: 600; color: var(--emerald-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                  Overall Strengths
+                </div>
+                <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--emerald-900); line-height: 1.4;">
+                  {% for s in res.strengths_list %}
+                    <li>{{ s }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+
+              <div style="padding: 0.75rem; background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-sm);">
+                <div style="font-size: 0.7rem; font-weight: 600; color: var(--amber-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                  Topics Needing Review
+                </div>
+                <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--amber-900); line-height: 1.4;">
+                  {% for im in res.improvements_list %}
+                    <li>{{ im }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+
+          <!-- Instructor Overall Remarks Form -->
+          <form action="{{ url_for('faculty.save_summary_feedback', submission_id=submission.submission_id) }}" method="POST" style="margin: 0;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--slate-700); display: block; margin-bottom: 0.25rem;">
+              Instructor Overall Feedback & Commendations (Visible to Student upon Publication):
+            </label>
+            <div style="display: flex; gap: 0.65rem; align-items: flex-end;">
+              <textarea name="faculty_summary_feedback" rows="2" placeholder="Enter personalized overarching remarks, commendations, or semester advice for this student..." class="form-control" style="font-size: 0.82rem; resize: vertical;">{{ res.faculty_summary_feedback if res and res.faculty_summary_feedback else '' }}</textarea>
+              <button type="submit" class="btn btn-secondary btn-sm" style="white-space: nowrap; padding: 0.45rem 0.85rem; font-weight: 600;">
+                Save Remarks
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  {% else %}
+    <!-- Not Evaluated Empty State -->
+    <div class="card" style="border: 1px dashed var(--border-default); background: var(--slate-50);">
+      <div class="card-body" style="padding: 2.5rem 1.5rem; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🤖</div>
+        <h3 style="font-size: 1.05rem; font-weight: 600; color: var(--slate-900); margin-bottom: 0.35rem;">No AI Evaluation Generated Yet</h3>
+        <p style="font-size: 0.85rem; color: var(--slate-500); max-width: 460px; margin: 0 auto 1.25rem; line-height: 1.45;">
+          Click the button below to trigger semantic evaluation against your questions, supportive answers, and grading rubrics.
+        </p>
+        <form action="{{ url_for('faculty.evaluate_submission', submission_id=submission.submission_id) }}" method="POST" style="display: inline-block;">
+          <button type="submit" class="btn btn-primary btn-sm" style="padding: 0.5rem 1.25rem;">
+            Evaluate Submission with AI
+          </button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- SECTION 2: QUESTION TO ANSWER SEGMENTATION MAPPINGS -->
+<!-- ========================================================================= -->
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin: 0; color: var(--slate-900);">
+        Matched Question & Answer Segments
+      </h2>
+      <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.72rem;">
+        {{ questions|length }} Question{{ 's' if questions|length != 1 else '' }}
+      </span>
+    </div>
+  </div>
+
+  {% if questions %}
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      {% for q in questions %}
+        {% set ans_matches = [] %}
+        {% for a in submission.answers %}
+          {% if a.question_id == q.question_id %}
+            {% set _ = ans_matches.append(a) %}
+          {% endif %}
+        {% endfor %}
+
+        <div class="card">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 600; color: var(--slate-900); font-size: 0.92rem;">
+                Question {{ q.question_number }}
+              </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem;">
+                Max: {{ q.maximum_marks }} pts
+              </span>
+
+              {% if ans_matches %}
+                {% set ans = ans_matches[0] %}
+                <span class="badge" style="background: var(--primary-50); color: var(--primary-700); font-size: 0.75rem;">
+                  {{ ans.page_span_display }}
+                </span>
+                <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem;">
+                  {{ ans.match_method_display }}
+                </span>
+                {% set m_conf = ans.match_confidence_percentage %}
+                <span class="badge" style="font-size: 0.75rem; background: {% if m_conf >= 75 %}var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200);{% elif m_conf >= 50 %}var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200);{% else %}var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200);{% endif %}; font-family: var(--font-mono);">
+                  Match Conf: {{ m_conf }}%
+                </span>
+              {% else %}
+                <span class="badge badge-failed" style="font-size: 0.75rem;">
+                  No Answer Segment Mapped
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card-body" style="padding: 1.1rem;">
+            <!-- Question Prompt Box -->
+            <div style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; background: var(--slate-50); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); margin-bottom: 0.2rem;">
+                Question Prompt
+              </div>
+              <div style="font-size: 0.85rem; color: var(--slate-800); line-height: 1.45;">
+                {{ q.question_text }}
+              </div>
+            </div>
+
+            <!-- Matched Student Answer Box -->
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 600; color: var(--primary-700); letter-spacing: 0.05em;">
+                  Recognized Student Answer
+                </div>
+                {% if ans_matches %}
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="copyTextToClipboard('ans-text-{{ ans_matches[0].answer_id }}', this)" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">
+                    Copy Text
+                  </button>
+                {% endif %}
+              </div>
+
+              {% if ans_matches %}
+                {% set ans = ans_matches[0] %}
+                <textarea id="ans-text-{{ ans.answer_id }}" readonly style="width: 100%; min-height: 90px; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; padding: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--slate-50); color: var(--slate-800); resize: vertical;">{{ ans.extracted_text }}</textarea>
+              {% else %}
+                <div style="padding: 1rem; border: 1px dashed var(--border-default); border-radius: var(--radius-sm); background: var(--slate-50); text-align: center; color: var(--slate-500); font-size: 0.82rem;">
+                  No handwritten response was detected for Question {{ q.question_number }} in this submission.
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Unmatched / Orphan Content Section (If any) -->
+  {% if unmatched_answers %}
+    <div style="margin-top: 1.25rem;">
+      <div class="card" style="border: 1px solid var(--amber-300);">
+        <div class="card-header" style="background: var(--amber-50); display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem;">
+          <div style="font-weight: 600; font-size: 0.9rem; color: var(--amber-900);">
+            Unresolved / Orphan Extracted Content ({{ unmatched_answers|length }} Segment{{ 's' if unmatched_answers|length != 1 else '' }})
+          </div>
+          <span class="badge badge-review-required">Review Required</span>
+        </div>
+        <div class="card-body" style="padding: 1rem;">
+          <p style="font-size: 0.82rem; color: var(--slate-600); margin-bottom: 0.85rem;">
+            The following text blocks were extracted from student pages but could not be automatically mapped to an assignment question with sufficient confidence.
+          </p>
+          {% for orphan in unmatched_answers %}
+            <div style="margin-bottom: 0.75rem; padding: 0.75rem; background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                  <span class="badge" style="background: var(--primary-50); color: var(--primary-700); font-size: 0.72rem;">
+                    {{ orphan.page_span_display }}
+                  </span>
+                  {% if orphan.detected_label %}
+                    <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.72rem;">
+                      Detected: {{ orphan.detected_label }}
+                    </span>
+                  {% endif %}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyTextToClipboard('orphan-text-{{ orphan.answer_id }}', this)" style="padding: 0.15rem 0.45rem; font-size: 0.72rem;">
+                  Copy Text
+                </button>
+              </div>
+              <textarea id="orphan-text-{{ orphan.answer_id }}" readonly style="width: 100%; min-height: 70px; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; padding: 0.55rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--slate-50); color: var(--slate-800); resize: vertical;">{{ orphan.extracted_text }}</textarea>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- SECTION 3: PAGE-BY-PAGE OCR & VISUAL INSPECTION -->
+<!-- ========================================================================= -->
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <h2 style="font-size: 1.15rem; font-weight: 600; margin: 0; color: var(--slate-900);">
+        Page-by-Page Visual & OCR Inspection
+      </h2>
+      <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.72rem;">
+        {{ pages|length }} Rendered Page{{ 's' if pages|length != 1 else '' }}
+      </span>
+    </div>
+  </div>
+
+  {% if pages %}
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      {% for page in pages %}
+        <div class="card" id="page-{{ page.page_number }}">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 600; font-size: 0.92rem; color: var(--slate-900);">Page {{ page.page_number }} of {{ pages|length }}</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              {% if page.confidence is not none %}
+                {% set p_conf = (page.confidence * 100)|round(1) %}
+                <span class="badge" style="font-size: 0.75rem; background: {% if p_conf >= 75 %}var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200);{% elif p_conf >= 55 %}var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200);{% else %}var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200);{% endif %}; font-family: var(--font-mono);">
+                  OCR Confidence: {{ p_conf }}%
+                </span>
+              {% endif %}
+
+              {% if page.processing_status == 'Completed' %}
+                <span class="badge badge-completed"><span class="badge-dot"></span> Completed</span>
+              {% elif page.processing_status == 'Review Required' %}
+                <span class="badge badge-review-required"><span class="badge-dot"></span> Review Required</span>
+              {% elif page.processing_status == 'Failed' %}
+                <span class="badge badge-failed"><span class="badge-dot"></span> Failed</span>
+              {% else %}
+                <span class="badge badge-pending">{{ page.processing_status }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card-body" style="padding: 1.1rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+              <!-- Left: Original vs Preprocessed Image Tabs -->
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+                  <span style="font-size: 0.75rem; color: var(--slate-600); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Visual Render</span>
+                  <div style="display: flex; gap: 0.25rem; background: var(--slate-100); padding: 2px; border-radius: var(--radius-sm);" class="image-toggle-group">
+                    <button type="button" class="btn btn-secondary btn-sm active-tab" onclick="switchImageTab({{ page.page_id }}, 'original', this)" id="btn-orig-{{ page.page_id }}" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: var(--primary-700); color: #fff;">
+                      Original Render
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="switchImageTab({{ page.page_id }}, 'processed', this)" id="btn-proc-{{ page.page_id }}" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; background: transparent; color: var(--slate-600);">
+                      Preprocessed
+                    </button>
+                  </div>
+                </div>
+
+                <div style="position: relative; background: #0f172a; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-default); min-height: 380px; display: flex; align-items: center; justify-content: center; max-height: 500px;">
+                  <img id="img-display-{{ page.page_id }}" 
+                       src="{{ url_for('faculty.stream_page_image', page_id=page.page_id, image_type='original') }}" 
+                       alt="Page {{ page.page_number }} Render"
+                       style="max-width: 100%; max-height: 480px; object-fit: contain; cursor: zoom-in;"
+                       onclick="window.open(this.src, '_blank')"
+                       title="Click to view full resolution image in new tab">
+                  <div id="img-caption-{{ page.page_id }}" style="position: absolute; bottom: 8px; right: 8px; background: rgba(15, 23, 42, 0.8); color: #fff; padding: 2px 6px; border-radius: var(--radius-sm); font-size: 0.7rem; backdrop-filter: blur(4px);">
+                    Original Render (300 DPI)
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Raw Recognized Handwriting Text Block -->
+              <div style="display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+                  <span style="font-size: 0.75rem; color: var(--slate-600); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Raw Extracted Text</span>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="copyTextToClipboard('text-{{ page.page_id }}', this)" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;">
+                    Copy Text
+                  </button>
+                </div>
+
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                  {% if page.extracted_text and page.extracted_text.strip() %}
+                    <textarea id="text-{{ page.page_id }}" readonly style="width: 100%; flex: 1; min-height: 340px; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; padding: 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--slate-50); color: var(--slate-800); resize: vertical;">{{ page.extracted_text }}</textarea>
+                    <div style="display: flex; justify-content: space-between; margin-top: 0.4rem; font-size: 0.72rem; color: var(--slate-400);">
+                      <span>Characters: <strong>{{ page.extracted_text|length }}</strong> &bull; Words: <strong>{{ page.extracted_text.split()|length }}</strong></span>
+                      <span>Segmented into Q&A Blocks</span>
+                    </div>
+                  {% else %}
+                    <div style="flex: 1; min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed var(--border-default); border-radius: var(--radius-sm); background: var(--slate-50); padding: 1.5rem; text-align: center;">
+                      <div style="font-size: 1.5rem; margin-bottom: 0.35rem;">📝</div>
+                      <div style="font-weight: 600; color: var(--slate-700); margin-bottom: 0.2rem; font-size: 0.85rem;">No text detected on this page</div>
+                      <p style="font-size: 0.78rem; color: var(--slate-400); max-width: 280px; margin: 0;">
+                        The recognizer did not detect readable text blocks with sufficient confidence.
+                      </p>
+                    </div>
+                  {% endif %}
+
+                  {% if page.error_message %}
+                    <div class="alert alert-danger" style="margin-top: 0.65rem; padding: 0.45rem 0.65rem; font-size: 0.78rem;">
+                      <strong>Page Error:</strong> {{ page.error_message }}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <div class="card-body">
+        <div class="empty-state">
+          <div class="empty-icon">⏳</div>
+          <div class="empty-title">No document pages extracted yet</div>
+          <p class="empty-desc">This submission has not completed the document processing pipeline or the file was not processed.</p>
+          <form action="{{ url_for('faculty.retry_processing', submission_id=submission.submission_id) }}" method="POST" style="margin-top: 1rem;">
+            <button type="submit" class="btn btn-primary btn-sm">Process Document Now</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+function switchImageTab(pageId, type, btn) {
+  const img = document.getElementById('img-display-' + pageId);
+  const caption = document.getElementById('img-caption-' + pageId);
+  const btnOrig = document.getElementById('btn-orig-' + pageId);
+  const btnProc = document.getElementById('btn-proc-' + pageId);
+  
+  if (type === 'original') {
+    img.src = "{{ url_for('faculty.stream_page_image', page_id=0, image_type='original') }}".replace('/0/', '/' + pageId + '/');
+    caption.innerText = 'Original Render (300 DPI)';
+    btnOrig.style.background = 'var(--primary-700)';
+    btnOrig.style.color = '#fff';
+    btnProc.style.background = 'transparent';
+    btnProc.style.color = 'var(--slate-600)';
+  } else {
+    img.src = "{{ url_for('faculty.stream_page_image', page_id=0, image_type='processed') }}".replace('/0/', '/' + pageId + '/');
+    caption.innerText = 'Preprocessed (Grayscale + CLAHE + Deskew)';
+    btnProc.style.background = 'var(--primary-700)';
+    btnProc.style.color = '#fff';
+    btnOrig.style.background = 'transparent';
+    btnOrig.style.color = 'var(--slate-600)';
+  }
+}
+
+function copyTextToClipboard(elementId, btn) {
+  const textArea = document.getElementById(elementId);
+  if (!textArea) return;
+  
+  navigator.clipboard.writeText(textArea.value).then(() => {
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Copied';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+    }, 2000);
+  }).catch(() => {
+    textArea.select();
+    document.execCommand('copy');
+    btn.innerHTML = 'Copied';
+    setTimeout(() => {
+      btn.innerHTML = 'Copy Text';
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

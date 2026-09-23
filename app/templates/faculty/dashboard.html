@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty Overview – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Compact Professional Page Header -->
+<div class="page-header">
+  <div>
+    <h1 class="page-header-title">Good afternoon, {{ faculty.name }}</h1>
+    <p class="page-header-desc">
+      Overview of coursework, submissions, and evaluation queue for {{ faculty.department }}.
+    </p>
+  </div>
+  <div style="display: flex; gap: 0.6rem; align-items: center;">
+    <a href="{{ url_for('faculty.results_dashboard') }}" class="btn btn-secondary btn-sm">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      Results & Gradebook
+    </a>
+    <a href="{{ url_for('faculty.create_assignment') }}" class="btn btn-primary btn-sm">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      + New Assignment
+    </a>
+  </div>
+</div>
+
+<!-- Restrained Information Metric Strip -->
+<div class="metric-strip">
+  <div class="metric-item">
+    <div class="metric-label">Assignments</div>
+    <div class="metric-num">{{ total_assignments }}</div>
+    <div class="metric-sub">Total coursework</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Published</div>
+    <div class="metric-num">{{ published_count }}</div>
+    <div class="metric-sub">Active for submissions</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Drafts</div>
+    <div class="metric-num">{{ draft_count }}</div>
+    <div class="metric-sub">Unpublished</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Submissions</div>
+    <div class="metric-num">{{ total_submissions }}</div>
+    <div class="metric-sub">Uploaded answers</div>
+  </div>
+</div>
+
+<!-- Recent Assignments Section -->
+<div class="card">
+  <div class="card-header">
+    <div style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+      Recent Assignments
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="{{ url_for('faculty.assignment_list') }}" class="btn btn-secondary btn-sm">
+        View All Registry &rarr;
+      </a>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if assignments %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Assignment</th>
+              <th>Subject</th>
+              <th>Questions</th>
+              <th>Marks</th>
+              <th>Deadline</th>
+              <th>Status</th>
+              <th>Submissions</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assignments %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" style="font-weight: 600; color: var(--slate-900);">
+                    {{ a.title }}
+                  </a>
+                </td>
+                <td>
+                  <span style="font-size: 0.85rem; color: var(--slate-600);">{{ a.subject }}</span>
+                </td>
+                <td>
+                  <span style="font-size: 0.85rem; color: var(--slate-600);">
+                    {{ a.question_count }} Qs
+                  </span>
+                </td>
+                <td>
+                  <span style="font-weight: 600; color: var(--slate-800); font-family: var(--font-mono); font-size: 0.88rem;">{{ a.total_marks }}</span>
+                  <span style="font-size: 0.75rem; color: var(--slate-500);">pts</span>
+                </td>
+                <td>
+                  <div style="font-size: 0.85rem; {% if a.is_past_deadline %}color: var(--rose-600); font-weight: 600;{% else %}color: var(--slate-700);{% endif %}">
+                    {{ a.deadline.strftime('%b %d, %Y') }}
+                    <span style="font-size: 0.72rem; color: var(--slate-400); display: block;">{{ a.deadline.strftime('%I:%M %p') }}</span>
+                  </div>
+                </td>
+                <td>
+                  {% if a.published %}
+                    <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+                  {% else %}
+                    <span class="badge badge-draft"><span class="badge-dot"></span> Draft</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" style="font-size: 0.85rem; font-weight: 600; color: var(--primary-600);">
+                    {{ a.submissions|length }} submitted
+                  </a>
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: 0.35rem; align-items: center;">
+                    <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" class="btn btn-secondary btn-sm" title="Review Submissions">
+                      Review
+                    </a>
+                    <a href="{{ url_for('faculty.edit_assignment', assignment_id=a.assignment_id) }}" class="btn btn-secondary btn-sm" title="Edit Assignment">
+                      Edit
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📝</div>
+        <div class="empty-title">No assignments created yet</div>
+        <p class="empty-desc">Create your first assignment with structured questions, reference solutions, and scoring rubrics.</p>
+        <div style="margin-top: 1rem;">
+          <a href="{{ url_for('faculty.create_assignment') }}" class="btn btn-primary">+ Create First Assignment</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

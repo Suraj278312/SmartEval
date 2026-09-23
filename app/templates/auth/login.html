@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In to SmartEval{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="margin-top: 2.5rem; margin-bottom: 3rem;">
+  <div class="card" style="border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-sm);">
+    <div style="text-align: center; padding: 2rem 2rem 1.25rem; border-bottom: 1px solid var(--border-subtle);">
+      <div class="brand-icon-emblem" style="width: 40px; height: 40px; margin: 0 auto 0.75rem; border-radius: var(--radius-md);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+      </div>
+      <h1 style="font-size: 1.45rem; margin-bottom: 0.25rem; color: var(--slate-900); font-weight: 700;">Sign In to SmartEval</h1>
+      <p style="font-size: 0.85rem; color: var(--slate-500); max-width: 360px; margin: 0 auto;">Select your institutional portal to access your academic evaluation workspace.</p>
+    </div>
+
+    <div class="card-body" style="padding: 1.75rem 2rem;">
+      <!-- Role Toggle Tabs -->
+      <div class="tab-toggle" id="role-toggle-group" style="display: flex; background: var(--slate-100); padding: 3px; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+        <a href="{{ url_for('auth.login', role='student') }}" class="tab-btn {% if role == 'student' or not role %}active{% endif %}" id="tab-student" style="flex: 1; text-align: center; padding: 0.45rem; font-weight: 600; font-size: 0.85rem; border-radius: var(--radius-sm); text-decoration: none; color: {% if role == 'student' or not role %}var(--slate-900){% else %}var(--slate-600){% endif %}; background: {% if role == 'student' or not role %}#ffffff{% else %}transparent{% endif %};">
+          Student Portal
+        </a>
+        <a href="{{ url_for('auth.login', role='faculty') }}" class="tab-btn {% if role == 'faculty' %}active{% endif %}" id="tab-faculty" style="flex: 1; text-align: center; padding: 0.45rem; font-weight: 600; font-size: 0.85rem; border-radius: var(--radius-sm); text-decoration: none; color: {% if role == 'faculty' %}var(--slate-900){% else %}var(--slate-600){% endif %}; background: {% if role == 'faculty' %}#ffffff{% else %}transparent{% endif %};">
+          Faculty Portal
+        </a>
+      </div>
+
+      <form method="POST" action="{{ url_for('auth.login', role=role) }}">
+        <input type="hidden" name="role" id="role-input" value="{{ role or 'student' }}">
+
+        <div class="form-group">
+          <label class="form-label" for="email">
+            <span>Institutional Email</span>
+            <span style="font-size: 0.72rem; color: var(--slate-400); font-weight: 500;">Required</span>
+          </label>
+          <input type="email" id="email" name="email" class="form-control" value="{{ email or '' }}" placeholder="name@university.edu" required autofocus>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">
+            <span>Password</span>
+            <span style="font-size: 0.72rem; color: var(--slate-400); font-weight: 500;">Confidential</span>
+          </label>
+          <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <button type="submit" class="btn btn-primary" style="width: 100%; font-weight: 600; justify-content: center; padding: 0.65rem;">
+            Sign In as {{ 'Faculty Member' if role == 'faculty' else 'Student' }} &rarr;
+          </button>
+        </div>
+      </form>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle); text-align: center; font-size: 0.85rem; color: var(--slate-600);">
+        <span>Don't have an account? </span>
+        <a href="{{ url_for('auth.register', role=role) }}" style="font-weight: 600; color: var(--primary-700);">Create an account</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo Credentials Quick-Fill Helper -->
+  <div class="card" style="margin-top: 1.25rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1rem 1.25rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.65rem; flex-wrap: wrap; gap: 0.5rem;">
+      <span style="font-weight: 600; font-size: 0.75rem; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.05em;">
+        Quick Demo Credentials
+      </span>
+      <span style="font-size: 0.75rem; color: var(--slate-400);">Click to auto-fill</span>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="fillCreds('faculty@smarteval.edu', 'Faculty@123', 'faculty')" style="text-align: left; justify-content: flex-start; padding: 0.5rem 0.75rem; font-size: 0.78rem; background: #ffffff;">
+        <div>
+          <div style="font-weight: 600; color: var(--slate-900);">Faculty Account</div>
+          <div style="color: var(--slate-400); font-family: var(--font-mono); font-size: 0.72rem;">faculty@smarteval.edu</div>
+        </div>
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="fillCreds('student1@smarteval.edu', 'Student@123', 'student')" style="text-align: left; justify-content: flex-start; padding: 0.5rem 0.75rem; font-size: 0.78rem; background: #ffffff;">
+        <div>
+          <div style="font-weight: 600; color: var(--slate-900);">Student Account</div>
+          <div style="color: var(--slate-400); font-family: var(--font-mono); font-size: 0.72rem;">student1@smarteval.edu</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function fillCreds(email, pass, role) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = pass;
+    if (role === 'faculty' && window.location.href.indexOf('role=faculty') === -1) {
+      window.location.href = "{{ url_for('auth.login', role='faculty') }}";
+    } else if (role === 'student' && window.location.href.indexOf('role=faculty') > -1) {
+      window.location.href = "{{ url_for('auth.login', role='student') }}";
+    }
+  }
+</script>
+{% endblock %}

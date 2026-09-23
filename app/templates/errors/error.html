@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_title or 'Request Error' }} – SmartEval{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="text-align: center; padding: 4rem 1rem;">
+  <div style="width: 72px; height: 72px; border-radius: var(--radius-full); background: var(--slate-100); color: var(--slate-600); display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.25rem;">
+    📄
+  </div>
+  <h1 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--slate-900); letter-spacing: -0.02em;">{{ error_title or 'Request Error' }}</h1>
+  <p style="font-size: 1rem; color: var(--slate-600); max-width: 480px; margin: 0 auto 2rem; line-height: 1.6;">
+    {{ error_message or 'An issue was encountered while handling your file or request.' }}
+  </p>
+  <div>
+    <a href="{{ url_for('index') }}" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-weight: 700; box-shadow: var(--shadow-sm);">
+      Return to Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SmartEval{% endblock %} – AI Academic Evaluation Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+<div class="app-shell">
+  {% if session.get('user_id') %}
+    <!-- Left Persistent Navigation Sidebar (Desktop 1024px+) -->
+    <aside class="app-sidebar">
+      <!-- Brand Header -->
+      <div class="sidebar-brand-wrapper">
+        <a href="{{ url_for('index') }}" class="brand-logo-link" title="SmartEval - AI-Assisted Academic Evaluation">
+          <div class="brand-icon-emblem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div class="brand-info">
+            <span class="brand-name">SmartEval</span>
+            <span class="brand-descriptor">Academic Evaluation</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="sidebar-nav">
+        {% if session.get('role') == 'faculty' %}
+          <div class="sidebar-section-title">Faculty Workspace</div>
+          
+          <a href="{{ url_for('faculty.dashboard') }}" class="sidebar-nav-link {% if request.endpoint == 'faculty.dashboard' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Dashboard</span>
+          </a>
+
+          <a href="{{ url_for('faculty.assignment_list') }}" class="sidebar-nav-link {% if request.endpoint and 'faculty.assignment' in request.endpoint and request.endpoint != 'faculty.create_assignment' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <span>Assignments</span>
+          </a>
+
+          <a href="{{ url_for('faculty.results_dashboard') }}" class="sidebar-nav-link {% if request.endpoint and 'faculty.results' in request.endpoint %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Results & Gradebook</span>
+          </a>
+
+        {% elif session.get('role') == 'student' %}
+          <div class="sidebar-section-title">Student Portal</div>
+
+          <a href="{{ url_for('student.dashboard') }}" class="sidebar-nav-link {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Dashboard</span>
+          </a>
+
+          <a href="{{ url_for('student.assignment_list') }}" class="sidebar-nav-link {% if request.endpoint and 'student.assignment' in request.endpoint %}active{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span>Coursework</span>
+          </a>
+        {% endif %}
+      </nav>
+
+      <!-- Sidebar Bottom Info -->
+      <div class="sidebar-footer">
+        <div class="sidebar-user-card">
+          <div class="user-avatar-circle">
+            {{ (current_user.name[0] if current_user and current_user.name else session.get('user_name', 'U')[0])|upper }}
+          </div>
+          <div class="user-text-meta">
+            <span class="user-name-title">{{ current_user.name if current_user else session.get('user_name', 'User') }}</span>
+            <span class="user-role-pill">{{ session.get('role') }}</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  {% endif %}
+
+  <!-- Main Column -->
+  <div class="app-main">
+    {% if session.get('user_id') %}
+      <!-- Authenticated Top Header Bar -->
+      <header class="app-topbar">
+        <div class="topbar-left">
+          <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation drawer">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+
+          <div class="topbar-context-badge">
+            <span style="font-weight: 700; color: var(--slate-800);">SmartEval Workspace</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="system-status-indicator" title="System status: Operational">
+            <div class="system-status-dot"></div>
+            <span>Operational</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm" title="Sign Out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Sign Out</span>
+            </a>
+          </div>
+        </div>
+      </header>
+    {% else %}
+      <!-- Unauthenticated Top Header Bar -->
+      <header class="app-topbar" style="background: rgba(255,255,255,0.95); height: 68px;">
+        <div class="topbar-left">
+          <a href="{{ url_for('index') }}" class="brand-logo-link" style="text-decoration: none;">
+            <div class="brand-icon-emblem">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+            </div>
+            <div class="brand-info">
+              <span class="brand-name">SmartEval</span>
+              <span class="brand-descriptor">Academic Evaluation</span>
+            </div>
+          </a>
+        </div>
+        <div class="topbar-right">
+          <a href="{{ url_for('auth.login', role='student') }}" class="btn btn-secondary btn-sm">Student Portal</a>
+          <a href="{{ url_for('auth.login', role='faculty') }}" class="btn btn-primary btn-sm">Faculty Sign In</a>
+        </div>
+      </header>
+    {% endif %}
+
+    <!-- Main Content Container -->
+    <main class="app-content">
+      <!-- Flash Notification Banners -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div style="margin-bottom: 1.5rem;">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category if category != 'error' else 'danger' }}">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  {% if category == 'success' %}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                  {% elif category == 'danger' or category == 'error' %}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="15" y1="9" x2="9" y2="15"></line>
+                      <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                  {% elif category == 'warning' %}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                  {% else %}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="16" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                  {% endif %}
+                  <span>{{ message }}</span>
+                </div>
+                <button type="button" class="alert-close" aria-label="Dismiss notification">&times;</button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <strong style="color: var(--slate-800);">SmartEval Platform</strong>
+        <span>&bull;</span>
+        <span>AI-Assisted Academic Coursework Evaluation</span>
+      </div>
+      <div>
+        <span>&copy; {{ current_year }} SmartEval Platform</span>
+      </div>
+    </footer>
+  </div>
+</div>
+
+{% if session.get('user_id') %}
+  <!-- Mobile Off-Canvas Navigation Drawer -->
+  <div class="mobile-drawer-overlay" id="mobileDrawerOverlay"></div>
+  <nav class="mobile-drawer" id="mobileDrawer">
+    <div class="mobile-drawer-header">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <div class="brand-icon-emblem" style="width: 30px; height: 30px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          </svg>
+        </div>
+        <strong style="font-size: 1.05rem; color: var(--slate-900);">SmartEval</strong>
+      </div>
+      <button type="button" id="mobileDrawerClose" style="background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--slate-500);">&times;</button>
+    </div>
+
+    <div class="sidebar-nav" style="padding: 1rem;">
+      {% if session.get('role') == 'faculty' %}
+        <a href="{{ url_for('faculty.dashboard') }}" class="sidebar-nav-link {% if request.endpoint == 'faculty.dashboard' %}active{% endif %}">
+          Dashboard
+        </a>
+        <a href="{{ url_for('faculty.assignment_list') }}" class="sidebar-nav-link {% if request.endpoint and 'faculty.assignment' in request.endpoint %}active{% endif %}">
+          Assignments
+        </a>
+        <a href="{{ url_for('faculty.results_dashboard') }}" class="sidebar-nav-link {% if request.endpoint and 'faculty.results' in request.endpoint %}active{% endif %}">
+          Results & Gradebook
+        </a>
+      {% elif session.get('role') == 'student' %}
+        <a href="{{ url_for('student.dashboard') }}" class="sidebar-nav-link {% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+          Dashboard
+        </a>
+        <a href="{{ url_for('student.assignment_list') }}" class="sidebar-nav-link {% if request.endpoint and 'student.assignment' in request.endpoint %}active{% endif %}">
+          Coursework
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="sidebar-footer" style="margin-top: auto;">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm" style="width: 100%;">Sign Out</a>
+    </div>
+  </nav>
+{% endif %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

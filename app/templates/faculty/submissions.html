@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Submissions: {{ assignment.title }} – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('faculty.assignment_list') }}" style="color: var(--slate-500);">&larr; Assignments Registry</a> / 
+      <span>Submissions Review</span>
+    </div>
+    <h1 class="page-header-title">{{ assignment.title }}</h1>
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--slate-600); margin-top: 0.2rem;">
+      <span style="font-weight: 600; color: var(--slate-800);">{{ assignment.subject }}</span>
+      <span>&bull;</span>
+      <span>Deadline: {{ assignment.deadline.strftime('%b %d, %Y %I:%M %p') }}</span>
+      <span>&bull;</span>
+      <span>Max: {{ assignment.total_marks }} pts</span>
+    </div>
+  </div>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="{{ url_for('faculty.edit_assignment', assignment_id=assignment.assignment_id) }}" class="btn btn-secondary btn-sm">
+      Edit Config
+    </a>
+    <a href="{{ url_for('faculty.assignment_list') }}" class="btn btn-secondary btn-sm">
+      Back to Registry
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <span style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+        Student Submissions
+      </span>
+      <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem;">
+        {{ submissions|length }} Received
+      </span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      {% if submissions %}
+        <form action="{{ url_for('faculty.publish_all_results', assignment_id=assignment.assignment_id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Publish all evaluated results for this assignment to students?');">
+          <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+            Publish All Reviewed
+          </button>
+        </form>
+      {% endif %}
+      <a href="{{ url_for('faculty.results_dashboard', assignment_id=assignment.assignment_id) }}" class="btn btn-secondary btn-sm">
+        Gradebook & Analytics &rarr;
+      </a>
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if submissions %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Class / Section</th>
+              <th>Submitted</th>
+              <th>Score</th>
+              <th>Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub in submissions %}
+              <tr>
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-900);">{{ sub.student.name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-400);">{{ sub.student.email }}</div>
+                </td>
+                <td>
+                  <span style="font-size: 0.85rem; color: var(--slate-700); font-family: var(--font-mono);">
+                    {{ sub.student.class_name }}
+                  </span>
+                </td>
+                <td>
+                  <div style="font-size: 0.85rem; color: var(--slate-700);">
+                    {{ sub.submission_date.strftime('%b %d, %Y') }}
+                    <span style="font-size: 0.72rem; color: var(--slate-400); display: block;">{{ sub.submission_date.strftime('%I:%M %p') }} &bull; {{ sub.file_size_display }}</span>
+                  </div>
+                </td>
+                <td>
+                  {% if sub.evaluations %}
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                      <span style="font-weight: 600; color: var(--slate-900); font-family: var(--font-mono); font-size: 0.95rem;">
+                        {{ sub.total_final_score }} <span style="font-size: 0.75rem; color: var(--slate-400);">/ {{ sub.total_maximum_marks }}</span>
+                      </span>
+                      <span class="badge" style="font-size: 0.72rem; font-weight: 600; background: {% if sub.percentage >= 75 %}var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200);{% elif sub.percentage >= 50 %}var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200);{% else %}var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200);{% endif %};">
+                        {{ sub.percentage }}%
+                      </span>
+                    </div>
+                  {% else %}
+                    <span class="badge" style="background: var(--slate-100); color: var(--slate-500);">Pending AI</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div>
+                    {% if sub.is_published %}
+                      <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+                    {% elif sub.status == 'Review Required' or sub.has_pending_faculty_review %}
+                      <span class="badge badge-review-required"><span class="badge-dot"></span> Review Required</span>
+                    {% elif sub.evaluations %}
+                      <span class="badge badge-completed"><span class="badge-dot"></span> Evaluated</span>
+                    {% elif sub.status == 'Processing' %}
+                      <span class="badge badge-processing"><span class="badge-dot"></span> Processing</span>
+                    {% elif sub.status == 'Failed' %}
+                      <span class="badge badge-failed"><span class="badge-dot"></span> Failed</span>
+                    {% else %}
+                      <span class="badge badge-uploaded"><span class="badge-dot"></span> {{ sub.status }}</span>
+                    {% endif %}
+                  </div>
+                  {% if sub.pages %}
+                    <div style="font-size: 0.72rem; color: var(--slate-400); margin-top: 2px;">
+                      {{ sub.pages|length }} page{{ 's' if sub.pages|length != 1 else '' }} &bull; Conf: {{ sub.average_confidence }}%
+                    </div>
+                  {% endif %}
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: 0.3rem; align-items: center;">
+                    <a href="{{ url_for('faculty.review_submission', submission_id=sub.submission_id) }}" class="btn btn-primary btn-sm" title="Review extracted handwriting and AI grading">
+                      Review & Grade
+                    </a>
+                    {% if sub.evaluations %}
+                      <a href="{{ url_for('faculty.submission_report', submission_id=sub.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="View Printable Grade Report">
+                        Report
+                      </a>
+                    {% endif %}
+                    <a href="{{ url_for('faculty.download_submission', submission_id=sub.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="View original student PDF">
+                      PDF ↗
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📥</div>
+        <div class="empty-title">No submissions received yet</div>
+        <p class="empty-desc">When enrolled students upload their handwritten PDF solutions, their submissions and review status will appear here.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

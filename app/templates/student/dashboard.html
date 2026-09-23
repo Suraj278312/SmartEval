@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1 class="page-header-title">Student Dashboard</h1>
+    <p class="page-header-desc">
+      Welcome back, <strong style="color: var(--slate-800);">{{ student.name }}</strong> &bull; Cohort: <span style="font-family: var(--font-mono); font-weight: 600; color: var(--slate-700);">{{ student.class_name }}</span>
+    </p>
+  </div>
+  <div>
+    <a href="{{ url_for('student.assignment_list') }}" class="btn btn-primary btn-sm">
+      Browse Coursework
+    </a>
+  </div>
+</div>
+
+<!-- Restrained Information Metric Strip -->
+<div class="metric-strip">
+  <div class="metric-item">
+    <div class="metric-label">Coursework</div>
+    <div class="metric-num">{{ total_available }}</div>
+    <div class="metric-sub">Published assignments</div>
+  </div>
+  
+  <div class="metric-item">
+    <div class="metric-label">Submitted</div>
+    <div class="metric-num">{{ submitted_count }}</div>
+    <div class="metric-sub">Completed coursework</div>
+  </div>
+
+  <div class="metric-item">
+    <div class="metric-label">Pending Action</div>
+    <div class="metric-num" style="color: {% if pending_count > 0 %}var(--amber-700){% else %}var(--slate-800){% endif %};">
+      {{ pending_count }}
+    </div>
+    <div class="metric-sub">Awaiting your submission</div>
+  </div>
+</div>
+
+<!-- Assigned Coursework Section -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900); margin: 0;">Assigned Coursework</h2>
+      <p style="font-size: 0.75rem; color: var(--slate-500); margin: 0.1rem 0 0 0;">Recent and active assignment deadlines</p>
+    </div>
+    <a href="{{ url_for('student.assignment_list') }}" class="btn btn-secondary btn-sm">
+      View All &rarr;
+    </a>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if assignments %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Assignment</th>
+              <th>Instructor</th>
+              <th>Total Marks</th>
+              <th>Deadline</th>
+              <th>Your Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in assignments %}
+              {% set a = item.assignment %}
+              {% set sub = item.submission %}
+              <tr>
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-900);">{{ a.title }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-400);">
+                    {{ a.subject }} &bull; {{ a.question_count }} Question{{ 's' if a.question_count != 1 else '' }}
+                  </div>
+                </td>
+                <td style="color: var(--slate-700); font-size: 0.85rem;">{{ a.faculty.name if a.faculty else 'Faculty' }}</td>
+                <td>
+                  <span style="font-weight: 600; color: var(--slate-800); font-family: var(--font-mono); font-size: 0.88rem;">{{ a.total_marks }}</span> <span style="font-size: 0.75rem; color: var(--slate-400);">pts</span>
+                </td>
+                <td>
+                  <div style="font-size: 0.85rem; {% if a.is_past_deadline and not item.has_submitted %}color: var(--rose-600); font-weight: 600;{% else %}color: var(--slate-700);{% endif %}">
+                    {{ a.deadline.strftime('%b %d, %Y') }}
+                    <span style="font-size: 0.72rem; color: {% if a.is_past_deadline and not item.has_submitted %}var(--rose-600){% else %}var(--slate-400){% endif %}; display: block;">
+                      {{ a.deadline.strftime('%I:%M %p') }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  {% if item.has_submitted %}
+                    {% if sub.is_published %}
+                      <span class="badge badge-published"><span class="badge-dot"></span> Result Published</span>
+                      <div style="font-size: 0.75rem; font-weight: 600; color: var(--emerald-700); margin-top: 2px; font-family: var(--font-mono);">
+                        {{ sub.total_final_score }} / {{ sub.total_maximum_marks }} ({{ sub.percentage }}%)
+                      </div>
+                    {% else %}
+                      <span class="badge badge-uploaded"><span class="badge-dot"></span> In Review</span>
+                    {% endif %}
+                  {% elif item.is_overdue %}
+                    <span class="badge badge-failed"><span class="badge-dot"></span> Overdue</span>
+                  {% else %}
+                    <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.75rem;"><span class="badge-dot"></span> Not Submitted</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <div style="display: inline-flex; gap: 0.3rem;">
+                    {% if item.has_submitted %}
+                      {% if sub.is_published %}
+                        <a href="{{ url_for('student.submission_result', submission_id=sub.submission_id) }}" class="btn btn-primary btn-sm">
+                          View Result
+                        </a>
+                      {% endif %}
+                      <a href="{{ url_for('student.submission_view', submission_id=sub.submission_id) }}" class="btn btn-secondary btn-sm">
+                        Receipt
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('student.assignment_view', assignment_id=a.assignment_id) }}" class="btn btn-primary btn-sm">
+                        Open & Submit &rarr;
+                      </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <div class="empty-title">No published assignments available</div>
+        <p class="empty-desc">Check back later when your faculty instructors publish upcoming coursework assignments.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

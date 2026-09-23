@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Results & Gradebook – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('faculty.dashboard') }}" style="color: var(--slate-500);">&larr; Dashboard</a> / 
+      <span>Results & Gradebook</span>
+    </div>
+    <h1 class="page-header-title">Evaluation Results & Gradebook</h1>
+    <p class="page-header-desc">Monitor student evaluation progress, moderate final scores, and publish official grades.</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="{{ url_for('faculty.assignment_list') }}" class="btn btn-secondary btn-sm">
+      Manage Assignments
+    </a>
+  </div>
+</div>
+
+<!-- Restrained Information Metric Strip -->
+<div class="metric-strip">
+  <div class="metric-item">
+    <div class="metric-label">Submissions</div>
+    <div class="metric-num">{{ total_submissions }}</div>
+    <div class="metric-sub">Total received</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Published</div>
+    <div class="metric-num">{{ published_count }}</div>
+    <div class="metric-sub">Visible to students</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Needs Review</div>
+    <div class="metric-num">{{ pending_review_count }}</div>
+    <div class="metric-sub">Pending faculty approval</div>
+  </div>
+  <div class="metric-item">
+    <div class="metric-label">Active Courses</div>
+    <div class="metric-num">{{ assignments|length }}</div>
+    <div class="metric-sub">Registered assignments</div>
+  </div>
+</div>
+
+<!-- Filters & Search Toolbar -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-body" style="padding: 0.85rem 1.25rem;">
+    <form method="GET" action="{{ url_for('faculty.results_dashboard') }}" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+      
+      <!-- Assignment Filter -->
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 220px;">
+        <label for="assignment_id" style="font-size: 0.8rem; font-weight: 600; color: var(--slate-700); white-space: nowrap;">Assignment:</label>
+        <select name="assignment_id" id="assignment_id" class="form-control" style="font-size: 0.82rem; padding: 0.35rem 0.6rem;" onchange="this.form.submit()">
+          <option value="">All Assignments ({{ assignments|length }})</option>
+          {% for a in assignments %}
+            <option value="{{ a.assignment_id }}" {% if selected_assignment_id == a.assignment_id %}selected{% endif %}>
+              {{ a.title }} ({{ a.subject }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Status Filter -->
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 180px;">
+        <label for="status" style="font-size: 0.8rem; font-weight: 600; color: var(--slate-700); white-space: nowrap;">Status:</label>
+        <select name="status" id="status" class="form-control" style="font-size: 0.82rem; padding: 0.35rem 0.6rem;" onchange="this.form.submit()">
+          <option value="">All Statuses</option>
+          <option value="Published" {% if selected_status == 'Published' %}selected{% endif %}>Published Only</option>
+          <option value="Unpublished" {% if selected_status == 'Unpublished' %}selected{% endif %}>Unpublished (Draft)</option>
+          <option value="Review Required" {% if selected_status == 'Review Required' %}selected{% endif %}>Review Required</option>
+          <option value="Completed" {% if selected_status == 'Completed' %}selected{% endif %}>Evaluated / Completed</option>
+        </select>
+      </div>
+
+      <!-- Search Input -->
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 220px;">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Search student name, email..." class="form-control" style="font-size: 0.82rem; padding: 0.35rem 0.6rem;">
+        <button type="submit" class="btn btn-secondary btn-sm" style="padding: 0.35rem 0.75rem;">Search</button>
+        {% if selected_assignment_id or selected_status or search_query %}
+          <a href="{{ url_for('faculty.results_dashboard') }}" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.35rem 0.5rem;" title="Clear filters">Clear</a>
+        {% endif %}
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<!-- Results Table Card -->
+<div class="card">
+  <div class="card-header">
+    <div style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+      Student Submissions & Grade Records ({{ submissions|length }})
+    </div>
+    {% if selected_assignment_id and submissions %}
+      <form action="{{ url_for('faculty.publish_all_results', assignment_id=selected_assignment_id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Publish all evaluated results for this assignment to students?');">
+        <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+          Publish All Assignment Results
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if submissions %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Assignment</th>
+              <th style="text-align: center;">AI Score</th>
+              <th style="text-align: center;">Final Score</th>
+              <th style="text-align: center;">Percentage</th>
+              <th style="text-align: center;">Status</th>
+              <th style="text-align: center;">Publication</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sub in submissions %}
+              {% set res = sub.result %}
+              {% set is_pub = sub.is_published %}
+              <tr>
+                <!-- Student Info -->
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-900);">{{ sub.student.name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-400);">
+                    {{ sub.student.email }} &bull; <span style="font-family: var(--font-mono);">{{ sub.student.class_name }}</span>
+                  </div>
+                </td>
+
+                <!-- Assignment Info -->
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-800); font-size: 0.88rem;">{{ sub.assignment.title }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-400);">{{ sub.assignment.subject }}</div>
+                </td>
+
+                <!-- AI Score -->
+                <td style="text-align: center;">
+                  {% if sub.evaluations %}
+                    <span style="font-weight: 600; color: var(--primary-700); font-family: var(--font-mono); font-size: 0.85rem;">
+                      {{ sub.total_ai_score }} / {{ sub.total_maximum_marks }}
+                    </span>
+                  {% else %}
+                    <span style="color: var(--slate-400); font-size: 0.8rem;">Pending AI</span>
+                  {% endif %}
+                </td>
+
+                <!-- Final Faculty Score -->
+                <td style="text-align: center;">
+                  {% if sub.evaluations %}
+                    <span style="font-weight: 700; color: var(--emerald-700); font-family: var(--font-mono); font-size: 0.9rem;">
+                      {{ sub.total_final_score }} / {{ sub.total_maximum_marks }}
+                    </span>
+                  {% else %}
+                    <span style="color: var(--slate-400); font-size: 0.8rem;">--</span>
+                  {% endif %}
+                </td>
+
+                <!-- Percentage -->
+                <td style="text-align: center;">
+                  {% if sub.evaluations %}
+                    {% set pct = sub.percentage %}
+                    <span class="badge" style="font-size: 0.75rem; font-weight: 600; background: {% if pct >= 75 %}var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200);{% elif pct >= 50 %}var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200);{% else %}var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200);{% endif %};">
+                      {{ pct }}%
+                    </span>
+                  {% else %}
+                    <span style="color: var(--slate-400); font-size: 0.8rem;">--</span>
+                  {% endif %}
+                </td>
+
+                <!-- Status -->
+                <td style="text-align: center;">
+                  {% if is_pub %}
+                    <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+                  {% elif sub.status == 'Review Required' or sub.has_pending_faculty_review %}
+                    <span class="badge badge-review-required"><span class="badge-dot"></span> Needs Review</span>
+                  {% elif sub.evaluations %}
+                    <span class="badge badge-completed">Evaluated</span>
+                  {% else %}
+                    <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.75rem;">{{ sub.status }}</span>
+                  {% endif %}
+                </td>
+
+                <!-- Publication Badge & Action -->
+                <td style="text-align: center;">
+                  {% if is_pub %}
+                    <form action="{{ url_for('faculty.unpublish_submission_result', submission_id=sub.submission_id) }}" method="POST" style="margin: 0; display: inline;">
+                      <input type="hidden" name="next" value="{{ request.full_path }}">
+                      <button type="submit" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" title="Unpublish from student">
+                        Unpublish
+                      </button>
+                    </form>
+                  {% elif sub.evaluations %}
+                    <form action="{{ url_for('faculty.publish_submission_result', submission_id=sub.submission_id) }}" method="POST" style="margin: 0; display: inline;">
+                      <input type="hidden" name="next" value="{{ request.full_path }}">
+                      <button type="submit" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600); font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+                        Publish
+                      </button>
+                    </form>
+                  {% else %}
+                    <span style="font-size: 0.75rem; color: var(--slate-400);">Not Ready</span>
+                  {% endif %}
+                </td>
+
+                <!-- Actions -->
+                <td style="text-align: right; white-space: nowrap;">
+                  <div style="display: inline-flex; gap: 0.3rem;">
+                    <a href="{{ url_for('faculty.review_submission', submission_id=sub.submission_id) }}" class="btn btn-primary btn-sm">
+                      Review
+                    </a>
+                    {% if sub.evaluations %}
+                      <a href="{{ url_for('faculty.submission_report', submission_id=sub.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="View Printable Grade Report">
+                        Report
+                      </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <div class="empty-title">No Submissions Found</div>
+        <p class="empty-desc">
+          {% if selected_assignment_id or selected_status or search_query %}
+            No submissions matched your search and filter criteria. Try clearing active filters.
+          {% else %}
+            No student submissions have been recorded for your assignments yet.
+          {% endif %}
+        </p>
+        {% if selected_assignment_id or selected_status or search_query %}
+          <div style="margin-top: 1rem;">
+            <a href="{{ url_for('faculty.results_dashboard') }}" class="btn btn-secondary btn-sm">Clear All Filters</a>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

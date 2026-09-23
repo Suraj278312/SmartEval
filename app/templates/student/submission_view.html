@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Submission Status – SmartEval{% endblock %}
+
+{% block head_extra %}
+{% if submission.status == 'Processing' %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="margin-top: 0.5rem;">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+        <a href="{{ url_for('student.dashboard') }}" style="color: var(--slate-500);">&larr; Dashboard</a> / 
+        <span>Submission Receipt</span>
+      </div>
+      <h1 class="page-header-title">Submission Receipt</h1>
+      <p class="page-header-desc" style="font-family: var(--font-mono); font-size: 0.8rem;">Record Reference: #SUB-{{ submission.submission_id }}</p>
+    </div>
+    <div>
+      {% if submission.status == 'Uploaded' %}
+        <span class="badge badge-uploaded">
+          <span class="badge-dot"></span> Uploaded
+        </span>
+      {% elif submission.status == 'Processing' %}
+        <span class="badge badge-processing">
+          <span class="badge-dot"></span> Processing
+        </span>
+      {% elif submission.status == 'Completed' %}
+        <span class="badge badge-completed">
+          <span class="badge-dot"></span> Completed
+        </span>
+      {% elif submission.status == 'Review Required' %}
+        <span class="badge badge-review-required">
+          <span class="badge-dot"></span> Under Review
+        </span>
+      {% elif submission.status == 'Failed' %}
+        <span class="badge badge-failed">
+          <span class="badge-dot"></span> Failed
+        </span>
+      {% else %}
+        <span class="badge" style="background: var(--slate-100); color: var(--slate-600);">
+          <span class="badge-dot"></span> {{ submission.status }}
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body" style="padding: 1.5rem;">
+      <!-- Submission Details Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.25rem;">
+        <div>
+          <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--slate-400); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Coursework Assignment</div>
+          <strong style="font-size: 0.95rem; color: var(--slate-900); display: block;">{{ submission.assignment.title }}</strong>
+          <div style="font-size: 0.8rem; color: var(--slate-500);">Course: {{ submission.assignment.subject }}</div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--slate-400); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Candidate Name</div>
+          <strong style="font-size: 0.95rem; color: var(--slate-900); display: block;">{{ submission.student.name }}</strong>
+          <div style="font-size: 0.8rem; color: var(--slate-500);">Class: <span style="font-family: var(--font-mono);">{{ submission.student.class_name }}</span></div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--slate-400); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Submission Timestamp</div>
+          <div style="font-size: 0.88rem; font-weight: 600; color: var(--slate-800);">{{ submission.submission_date.strftime('%B %d, %Y') }}</div>
+          <div style="font-size: 0.75rem; color: var(--slate-400);">{{ submission.submission_date.strftime('%I:%M:%S %p UTC') }}</div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--slate-400); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Attached Document</div>
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--slate-900); word-break: break-all;">
+            {{ submission.original_filename }}
+          </div>
+          <div style="font-size: 0.75rem; color: var(--slate-400);">
+            Size: {{ submission.file_size_display }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Published Result Announcement Banner (if published) -->
+      {% if submission.is_published %}
+        <div style="background: var(--emerald-50); border: 1px solid var(--emerald-200); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--emerald-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+              Evaluation Complete & Published
+            </div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: var(--emerald-800); line-height: 1.2; font-family: var(--font-mono);">
+              Official Score: {{ submission.total_final_score }} / {{ submission.total_maximum_marks }} pts ({{ submission.percentage }}%)
+            </div>
+            <p style="font-size: 0.82rem; color: var(--emerald-900); margin: 0.2rem 0 0 0;">
+              Your instructor has reviewed and published your detailed rubric scorecard and performance feedback.
+            </p>
+          </div>
+          <a href="{{ url_for('student.submission_result', submission_id=submission.submission_id) }}" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+            View Scorecard &rarr;
+          </a>
+        </div>
+      {% endif %}
+
+      <!-- Evaluation Lifecycle Stepper -->
+      <div style="background-color: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.1rem; margin-bottom: 1.5rem;">
+        <h3 style="font-size: 0.9rem; font-weight: 600; margin: 0 0 0.4rem 0; color: var(--slate-900);">Evaluation Processing Pipeline</h3>
+        
+        {% if submission.is_published %}
+          <p style="font-size: 0.82rem; color: var(--slate-600); line-height: 1.45; margin: 0 0 0.85rem 0;">
+            Your handwritten submission has completed all stages: Optical Handwriting Recognition (HTR), AI semantic evaluation, and faculty grade review.
+          </p>
+        {% elif submission.evaluations %}
+          <p style="font-size: 0.82rem; color: var(--slate-600); line-height: 1.45; margin: 0 0 0.85rem 0;">
+            AI evaluation has completed preliminary scoring. Your submission is currently undergoing final review and grade moderation by your instructor.
+          </p>
+        {% elif submission.pages %}
+          <p style="font-size: 0.82rem; color: var(--slate-600); line-height: 1.45; margin: 0 0 0.85rem 0;">
+            Successfully processed <strong>{{ submission.pages|length }} page{{ 's' if submission.pages|length != 1 else '' }}</strong> from your submission. Handwriting recognition has been performed. Your submission is queued for instructor grading.
+          </p>
+        {% elif submission.status == 'Processing' %}
+          <p style="font-size: 0.82rem; color: var(--slate-600); line-height: 1.45; margin: 0 0 0.85rem 0;">
+            Your handwritten submission is currently undergoing page rendering and optical handwriting recognition (HTR).
+          </p>
+        {% else %}
+          <p style="font-size: 0.82rem; color: var(--slate-600); line-height: 1.45; margin: 0 0 0.85rem 0;">
+            Your document has been safely stored and validated in the system.
+          </p>
+        {% endif %}
+
+        <!-- Stepper Badges -->
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          <span class="badge badge-completed" style="font-size: 0.72rem;"><span class="badge-dot"></span> 1. Uploaded</span>
+          
+          <span class="badge {% if submission.pages %}badge-completed{% elif submission.status == 'Processing' %}badge-processing{% else %}badge-pending{% endif %}" style="font-size: 0.72rem;">
+            <span class="badge-dot"></span>
+            2. Page HTR
+          </span>
+
+          <span class="badge {% if submission.evaluations %}badge-completed{% else %}badge-pending{% endif %}" style="font-size: 0.72rem;">
+            <span class="badge-dot"></span>
+            3. AI Semantic Eval
+          </span>
+
+          <span class="badge {% if submission.is_reviewed or submission.is_published %}badge-completed{% elif submission.evaluations %}badge-processing{% else %}badge-pending{% endif %}" style="font-size: 0.72rem;">
+            <span class="badge-dot"></span>
+            4. Faculty Moderation
+          </span>
+
+          <span class="badge {% if submission.is_published %}badge-completed{% else %}badge-pending{% endif %}" style="font-size: 0.72rem;">
+            <span class="badge-dot"></span>
+            5. Grade Published
+          </span>
+        </div>
+      </div>
+
+      <!-- Actions Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <a href="{{ url_for('student.assignment_view', assignment_id=submission.assignment_id) }}" class="btn btn-secondary btn-sm">
+          &larr; Return to Assignment
+        </a>
+
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+          {% if submission.is_published %}
+            <a href="{{ url_for('student.submission_result', submission_id=submission.submission_id) }}" class="btn btn-primary btn-sm">
+              View Scorecard
+            </a>
+          {% endif %}
+          <a href="{{ url_for('student.download_submission', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank">
+            Download PDF ↗
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

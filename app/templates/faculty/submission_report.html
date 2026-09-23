@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Academic Grade Report – {{ data.student.name }} – {{ data.assignment.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <style>
+    body {
+      background-color: var(--slate-100);
+      color: var(--slate-900);
+      font-family: var(--font-sans);
+      margin: 0;
+      padding: 2rem 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .report-container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 2.5rem 3rem;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .report-header {
+      border-bottom: 2px solid var(--slate-800);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .report-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.75rem;
+      padding: 1rem 1.25rem;
+      background: var(--slate-50);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.85rem;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.75rem;
+      font-size: 0.85rem;
+    }
+
+    .report-table th, .report-table td {
+      border: 1px solid var(--border-subtle);
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+    }
+
+    .report-table th {
+      background-color: var(--slate-50);
+      font-weight: 600;
+      color: var(--slate-700);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+    }
+
+    .report-summary-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--slate-50);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 1.25rem 2rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .no-print-bar {
+      max-width: 860px;
+      margin: 0 auto 1rem auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .report-container {
+        box-shadow: none;
+        border: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .no-print-bar {
+        display: none !important;
+      }
+      @page {
+        margin: 1.5cm;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen-only Action Toolbar -->
+  <div class="no-print-bar">
+    <a href="{{ url_for('faculty.review_submission', submission_id=data.submission_id) }}" class="btn btn-secondary btn-sm">
+      &larr; Back to Review Workspace
+    </a>
+    <div style="display: flex; gap: 0.5rem;">
+      <button onclick="window.print()" class="btn btn-primary btn-sm">
+        Print / Export PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Formal Report Container -->
+  <div class="report-container">
+    
+    <!-- Institution / System Header -->
+    <div class="report-header">
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary-700); margin-bottom: 0.25rem;">
+          SmartEval Academic Platform
+        </div>
+        <h1 style="font-size: 1.45rem; font-weight: 700; margin: 0; color: var(--slate-900); letter-spacing: -0.01em;">
+          Official Student Grade Report
+        </h1>
+        <div style="font-size: 0.78rem; color: var(--slate-500); margin-top: 0.25rem;">
+          Verified Academic Assessment Record &bull; Generated on {{ current_time.strftime('%B %d, %Y at %I:%M %p UTC') }}
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span class="badge {% if data.is_published %}badge-published{% else %}badge-review-required{% endif %}" style="font-size: 0.75rem;">
+          {{ 'OFFICIALLY PUBLISHED' if data.is_published else 'INTERNAL FACULTY DRAFT' }}
+        </span>
+        <div style="font-size: 0.72rem; color: var(--slate-400); margin-top: 0.35rem; font-family: var(--font-mono);">
+          RECORD-SUB-{{ data.submission_id }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Metadata Grid -->
+    <div class="report-meta-grid">
+      <div>
+        <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--slate-400); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Candidate Information</div>
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900);">{{ data.student.name }}</div>
+        <div style="color: var(--slate-600); margin-top: 0.15rem;">Email: {{ data.student.email }}</div>
+        <div style="color: var(--slate-600);">Class / Cohort: <strong style="font-family: var(--font-mono);">{{ data.student.class_name }}</strong></div>
+      </div>
+
+      <div>
+        <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--slate-400); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.2rem;">Coursework & Timeline</div>
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900);">{{ data.assignment.title }}</div>
+        <div style="color: var(--slate-600); margin-top: 0.15rem;">Subject: <strong>{{ data.assignment.subject }}</strong></div>
+        <div style="color: var(--slate-600);">
+          Submitted: {{ data.submission_date.strftime('%b %d, %Y %I:%M %p') if data.submission_date else 'N/A' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Question-by-Question Marks Table -->
+    <div style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.65rem; color: var(--slate-900);">
+        Itemized Question Evaluation Breakdown
+      </h2>
+
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 45px; text-align: center;">Item</th>
+            <th>Question Prompt & Detailed Feedback</th>
+            <th style="width: 65px; text-align: center;">Max</th>
+            <th style="width: 65px; text-align: center;">AI Score</th>
+            <th style="width: 75px; text-align: center;">Final Score</th>
+            <th style="width: 65px; text-align: center;">Pct</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in data.questions %}
+            <tr>
+              <td style="text-align: center; font-weight: 600; color: var(--primary-700);">Q{{ q.question_number }}</td>
+              <td>
+                <div style="font-weight: 600; color: var(--slate-900); margin-bottom: 0.25rem; font-size: 0.85rem;">
+                  {{ q.question_text }}
+                </div>
+                {% if q.final_feedback %}
+                  <div style="font-size: 0.78rem; color: var(--slate-700); background: var(--slate-50); padding: 0.35rem 0.55rem; border-radius: var(--radius-sm); border-left: 2px solid var(--primary-600); line-height: 1.4;">
+                    <strong style="color: var(--slate-900);">Evaluation Note:</strong> {{ q.final_feedback }}
+                  </div>
+                {% endif %}
+              </td>
+              <td style="text-align: center; color: var(--slate-500); font-family: var(--font-mono);">{{ q.maximum_marks }}</td>
+              <td style="text-align: center; color: var(--primary-700); font-weight: 500; font-family: var(--font-mono);">{{ q.ai_score }}</td>
+              <td style="text-align: center; font-weight: 700; color: var(--emerald-700); font-family: var(--font-mono);">
+                {{ q.final_score }}
+              </td>
+              <td style="text-align: center; font-weight: 600; color: var(--slate-700);">
+                {{ q.score_percentage }}%
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Final Score Summary Banner -->
+    <div class="report-summary-box">
+      <div>
+        <div style="font-size: 0.68rem; text-transform: uppercase; font-weight: 600; color: var(--slate-400); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+          Total Score
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: var(--slate-900); line-height: 1;">
+          {{ data.total_obtained_marks }} <span style="font-size: 0.9rem; font-weight: 400; color: var(--slate-400);">/ {{ data.total_maximum_marks }} pts</span>
+        </div>
+      </div>
+
+      <div style="text-align: center;">
+        <div style="font-size: 0.68rem; text-transform: uppercase; font-weight: 600; color: var(--slate-400); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+          Percentage
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: {% if data.percentage >= 75 %}var(--emerald-600){% elif data.percentage >= 50 %}var(--amber-600){% else %}var(--rose-600){% endif %}; line-height: 1;">
+          {{ data.percentage }}%
+        </div>
+      </div>
+
+      <div style="text-align: right;">
+        <div style="font-size: 0.68rem; text-transform: uppercase; font-weight: 600; color: var(--slate-400); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+          Official Grade
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: var(--primary-700); line-height: 1;">
+          {{ data.grade_letter }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Grounded Overall Evaluation Summary -->
+    <div style="margin-bottom: 1.75rem;">
+      <h2 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.65rem; color: var(--slate-900);">
+        Performance Synthesis & Feedback
+      </h2>
+
+      <!-- General Feedback -->
+      <div style="padding: 0.85rem 1rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); margin-bottom: 0.85rem; font-size: 0.85rem; line-height: 1.5; color: var(--slate-800);">
+        {{ data.overall_feedback }}
+      </div>
+
+      <!-- Strengths & Improvements Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+        <div style="padding: 0.75rem 0.85rem; background: var(--emerald-50); border: 1px solid var(--emerald-200); border-radius: var(--radius-md);">
+          <div style="font-size: 0.72rem; font-weight: 600; color: var(--emerald-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+            Demonstrated Strengths
+          </div>
+          {% if data.overall_strengths %}
+            <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--emerald-800); line-height: 1.4;">
+              {% for s in data.overall_strengths %}
+                <li>{{ s }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <span style="font-size: 0.8rem; color: var(--emerald-700);">Satisfactory baseline maintained.</span>
+          {% endif %}
+        </div>
+
+        <div style="padding: 0.75rem 0.85rem; background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-md);">
+          <div style="font-size: 0.72rem; font-weight: 600; color: var(--amber-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+            Topics Needing Review
+          </div>
+          {% if data.overall_improvements %}
+            <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--amber-800); line-height: 1.4;">
+              {% for im in data.overall_improvements %}
+                <li>{{ im }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <span style="font-size: 0.8rem; color: var(--amber-700);">No critical gaps noted.</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if data.faculty_summary_feedback %}
+        <div style="margin-top: 0.85rem; padding: 0.75rem 1rem; background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: var(--radius-md);">
+          <div style="font-size: 0.72rem; font-weight: 600; color: var(--primary-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+            Instructor Overall Remarks
+          </div>
+          <div style="font-size: 0.85rem; color: var(--primary-900); line-height: 1.45;">
+            {{ data.faculty_summary_feedback }}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Formal Academic Sign-off Footer -->
+    <div style="margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: flex-end; font-size: 0.75rem; color: var(--slate-400);">
+      <div>
+        <div style="font-weight: 600; color: var(--slate-700);">SmartEval Academic Assessment System</div>
+        <div>Evaluation Protocol: Multimodal OCR + AI Semantic + Faculty Moderation</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="border-bottom: 1px solid var(--slate-400); width: 180px; margin-bottom: 0.25rem;"></div>
+        <div>Authorized Faculty Signature</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

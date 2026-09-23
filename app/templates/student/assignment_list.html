@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Available Assignments – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('student.dashboard') }}" style="color: var(--slate-500);">&larr; Dashboard</a> / 
+      <span>Coursework</span>
+    </div>
+    <h1 class="page-header-title">Coursework Assignments</h1>
+    <p class="page-header-desc">Browse published assignments, question breakdowns, and submission deadlines.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+      All Coursework Assignments ({{ assignments_data|length }})
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if assignments_data %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Assignment</th>
+              <th>Instructor</th>
+              <th>Questions</th>
+              <th>Total Marks</th>
+              <th>Deadline</th>
+              <th>Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in assignments_data %}
+              {% set a = item.assignment %}
+              {% set sub = item.submission %}
+              <tr>
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-900);">{{ a.title }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-400);">
+                    {{ a.subject }}
+                  </div>
+                </td>
+                <td style="color: var(--slate-700); font-size: 0.85rem;">{{ a.faculty.name if a.faculty else 'Faculty' }}</td>
+                <td style="color: var(--slate-600); font-size: 0.85rem;">{{ a.question_count }} Qs</td>
+                <td>
+                  <span style="font-weight: 600; color: var(--slate-800); font-family: var(--font-mono); font-size: 0.88rem;">{{ a.total_marks }}</span> <span style="font-size: 0.75rem; color: var(--slate-400);">pts</span>
+                </td>
+                <td>
+                  <div style="font-size: 0.85rem; {% if item.is_overdue %}color: var(--rose-600); font-weight: 600;{% else %}color: var(--slate-700);{% endif %}">
+                    {{ a.deadline.strftime('%b %d, %Y') }}
+                    <span style="font-size: 0.72rem; color: {% if item.is_overdue %}var(--rose-600);{% else %}var(--slate-400);{% endif %} display: block;">
+                      {{ a.deadline.strftime('%I:%M %p') }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  {% if item.has_submitted %}
+                    <span class="badge badge-uploaded"><span class="badge-dot"></span> Submitted</span>
+                  {% elif item.is_overdue %}
+                    <span class="badge badge-failed"><span class="badge-dot"></span> Overdue</span>
+                  {% else %}
+                    <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.75rem;"><span class="badge-dot"></span> Not Submitted</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <div style="display: inline-flex; gap: 0.3rem;">
+                    {% if item.has_submitted %}
+                      <a href="{{ url_for('student.submission_view', submission_id=sub.submission_id) }}" class="btn btn-secondary btn-sm">
+                        Receipt
+                      </a>
+                      <a href="{{ url_for('student.assignment_view', assignment_id=a.assignment_id) }}" class="btn btn-primary btn-sm">
+                        View / Resubmit
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('student.assignment_view', assignment_id=a.assignment_id) }}" class="btn btn-primary btn-sm">
+                        Open & Submit &rarr;
+                      </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📖</div>
+        <div class="empty-title">No published assignments</div>
+        <p class="empty-desc">Your instructors have not published any assignments yet. Please check back soon.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

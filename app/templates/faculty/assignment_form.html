@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Assignment' if is_edit else 'Create Assignment' }} – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('faculty.assignment_list') }}" style="color: var(--slate-500);">&larr; Assignments Registry</a> / 
+      <span>{{ 'Edit Configuration' if is_edit else 'New Coursework' }}</span>
+    </div>
+    <h1 class="page-header-title">
+      {{ 'Edit Assignment: ' ~ assignment.title if is_edit else 'Create New Assignment' }}
+    </h1>
+    <p class="page-header-desc">Define coursework parameters, structured questions, reference solutions, and scoring rubrics.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('faculty.assignment_list') }}" class="btn btn-secondary btn-sm">
+      &larr; Back to Registry
+    </a>
+  </div>
+</div>
+
+<form method="POST" id="assignment-form">
+  <!-- Section 1: Metadata -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-header">
+      <div style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+        1. Assignment Parameters & Metadata
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group" style="grid-column: span 2;">
+          <label class="form-label" for="title">
+            <span>Assignment Title</span>
+            <span style="color: var(--rose-600); font-weight: 700;">*</span>
+          </label>
+          <input type="text" id="title" name="title" class="form-control" value="{{ assignment.title if assignment else (form_data.get('title', '') if form_data else '') }}" placeholder="e.g. Problem Set 1: Divide and Conquer Algorithms & Master Theorem" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="subject">
+            <span>Course / Subject Code</span>
+            <span style="color: var(--rose-600); font-weight: 700;">*</span>
+          </label>
+          <input type="text" id="subject" name="subject" class="form-control" value="{{ assignment.subject if assignment else (form_data.get('subject', '') if form_data else '') }}" placeholder="e.g. CS301 - Design & Analysis of Algorithms" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="deadline">
+            <span>Submission Deadline</span>
+            <span style="color: var(--rose-600); font-weight: 700;">*</span>
+          </label>
+          <input type="datetime-local" id="deadline" name="deadline" class="form-control" value="{{ assignment.deadline.strftime('%Y-%m-%dT%H:%M') if (assignment and assignment.deadline) else (form_data.get('deadline', '') if form_data else '') }}" required>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" for="description">
+          <span>Assignment Description & Student Instructions</span>
+          <span style="font-size: 0.75rem; color: var(--slate-400);">Optional</span>
+        </label>
+        <textarea id="description" name="description" class="form-control" rows="3" placeholder="Provide instructions regarding permitted references, handwritten submission formatting, or problem scope...">{{ assignment.description if assignment else (form_data.get('description', '') if form_data else '') }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Questions & Rubrics -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+          2. Questions, Supportive Solutions & Rubrics
+        </span>
+        <span class="badge badge-published" id="total-marks-badge" style="font-size: 0.78rem;">
+          {{ assignment.total_marks if assignment else 10.0 }} Marks Total
+        </span>
+      </div>
+      <button type="button" id="add-question-btn" class="btn btn-secondary btn-sm">
+        + Add Question
+      </button>
+    </div>
+
+    <div class="card-body">
+      <div id="questions-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        {% if assignment and assignment.questions %}
+          {% for q in assignment.questions %}
+            <div class="question-item" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; background: var(--slate-50);">
+              <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div style="font-weight: 600; font-size: 0.9rem; color: var(--slate-800);">
+                  Question #<span class="q-number">{{ q.question_number }}</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm remove-question-btn" style="color: var(--rose-600); {% if assignment.questions|length == 1 %}display:none;{% endif %}">
+                  Remove
+                </button>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">
+                  <span>Question Statement / Problem Prompt</span>
+                  <span style="color: var(--rose-600); font-weight: 700;">*</span>
+                </label>
+                <textarea name="question_text[]" class="form-control" rows="3" placeholder="Enter problem statement or prompt..." required>{{ q.question_text }}</textarea>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">
+                    <span>Maximum Marks</span>
+                    <span style="color: var(--rose-600); font-weight: 700;">*</span>
+                  </label>
+                  <input type="number" step="0.5" min="0.5" name="maximum_marks[]" class="form-control q-marks" value="{{ q.maximum_marks }}" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">
+                    <span>Grading Rubric / Criteria</span>
+                    <span style="font-size: 0.75rem; color: var(--slate-400);">Optional</span>
+                  </label>
+                  <input type="text" name="rubric[]" class="form-control" value="{{ q.rubric or '' }}" placeholder="e.g. 4 pts approach, 4 pts calculation, 2 pts final answer">
+                </div>
+              </div>
+
+              <div style="margin-top: 0.75rem; padding: 0.85rem; background: #ffffff; border: 1px dashed var(--border-default); border-radius: var(--radius-sm);">
+                <div style="font-size: 0.78rem; font-weight: 600; color: var(--slate-700); margin-bottom: 0.4rem;">
+                  Confidential Faculty Supportive / Reference Solution (AI Evaluator Guide)
+                </div>
+                <textarea name="supportive_answer[]" class="form-control" rows="3" placeholder="Provide reference solution, key derivation steps, formulas, or expected keywords... (Strictly confidential - never shown to students)">{{ q.supportive_answer or '' }}</textarea>
+                <div style="font-size: 0.72rem; color: var(--slate-400); margin-top: 0.35rem;">Used exclusively to guide AI semantic evaluation. Hidden from student scorecards.</div>
+              </div>
+            </div>
+          {% endfor %}
+        {% elif questions_data %}
+          {% for q in questions_data %}
+            <div class="question-item" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; background: var(--slate-50);">
+              <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div style="font-weight: 600; font-size: 0.9rem; color: var(--slate-800);">
+                  Question #<span class="q-number">{{ loop.index }}</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm remove-question-btn" style="color: var(--rose-600); {% if questions_data|length == 1 %}display:none;{% endif %}">
+                  Remove
+                </button>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Question Prompt <span style="color: var(--rose-600);">*</span></label>
+                <textarea name="question_text[]" class="form-control" rows="3" placeholder="Enter problem statement or prompt..." required>{{ q.question_text }}</textarea>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Maximum Marks <span style="color: var(--rose-600);">*</span></label>
+                  <input type="number" step="0.5" min="0.5" name="maximum_marks[]" class="form-control q-marks" value="{{ q.maximum_marks }}" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Grading Rubric</label>
+                  <input type="text" name="rubric[]" class="form-control" value="{{ q.rubric or '' }}" placeholder="e.g. 5 pts definition, 5 pts proof">
+                </div>
+              </div>
+
+              <div style="margin-top: 0.75rem; padding: 0.85rem; background: #ffffff; border: 1px dashed var(--border-default); border-radius: var(--radius-sm);">
+                <div style="font-size: 0.78rem; font-weight: 600; color: var(--slate-700); margin-bottom: 0.4rem;">
+                  Confidential Faculty Supportive / Reference Solution
+                </div>
+                <textarea name="supportive_answer[]" class="form-control" rows="3" placeholder="Provide reference solution (never visible to students)">{{ q.supportive_answer or '' }}</textarea>
+                <div style="font-size: 0.72rem; color: var(--slate-400); margin-top: 0.35rem;">Strictly hidden from student scorecards.</div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <!-- Default Single Initial Question Block -->
+          <div class="question-item" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; background: var(--slate-50);">
+            <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <div style="font-weight: 600; font-size: 0.9rem; color: var(--slate-800);">
+                Question #<span class="q-number">1</span>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm remove-question-btn" style="color: var(--rose-600); display: none;">
+                Remove
+              </button>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <span>Question Statement / Problem Prompt</span>
+                <span style="color: var(--rose-600); font-weight: 700;">*</span>
+              </label>
+              <textarea name="question_text[]" class="form-control" rows="3" placeholder="Enter problem statement, prompt, or derivation instructions..." required></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">
+                  <span>Maximum Marks</span>
+                  <span style="color: var(--rose-600); font-weight: 700;">*</span>
+                </label>
+                <input type="number" step="0.5" min="0.5" name="maximum_marks[]" class="form-control q-marks" value="10.0" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  <span>Grading Rubric / Criteria</span>
+                  <span style="font-size: 0.75rem; color: var(--slate-400);">Optional</span>
+                </label>
+                <input type="text" name="rubric[]" class="form-control" placeholder="e.g. 4 pts approach, 4 pts calculation, 2 pts final answer">
+              </div>
+            </div>
+
+            <div style="margin-top: 0.75rem; padding: 0.85rem; background: #ffffff; border: 1px dashed var(--border-default); border-radius: var(--radius-sm);">
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--slate-700); margin-bottom: 0.4rem;">
+                Confidential Faculty Supportive / Reference Solution (Faculty & AI Only)
+              </div>
+              <textarea name="supportive_answer[]" class="form-control" rows="3" placeholder="Provide reference solution, key derivation steps, formulas, or expected keywords... (Never visible to students)"></textarea>
+              <div style="font-size: 0.72rem; color: var(--slate-400); margin-top: 0.35rem;">Used exclusively to guide AI semantic grading and is strictly hidden from student views.</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem;">
+      <a href="{{ url_for('faculty.assignment_list') }}" class="btn btn-secondary btn-sm">Cancel</a>
+      <div style="display: flex; gap: 0.5rem;">
+        {% if is_edit %}
+          <button type="submit" name="action" value="save" class="btn btn-primary btn-sm">
+            Save Changes
+          </button>
+          {% if not assignment.published %}
+            <button type="submit" name="action" value="publish" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+              Save & Publish
+            </button>
+          {% endif %}
+        {% else %}
+          <button type="submit" name="action" value="save_draft" class="btn btn-secondary btn-sm">
+            Save as Draft
+          </button>
+          <button type="submit" name="action" value="publish" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600);">
+            Publish Assignment
+          </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/assignment_editor.js') }}"></script>
+{% endblock %}

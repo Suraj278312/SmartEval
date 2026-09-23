@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}{{ assignment.title }} – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+      <a href="{{ url_for('student.assignment_list') }}" style="color: var(--slate-500);">&larr; Coursework</a> / 
+      <span>Assignment Details</span>
+    </div>
+    <h1 class="page-header-title">{{ assignment.title }}</h1>
+    <p class="page-header-desc">
+      Subject: <strong style="color: var(--slate-800);">{{ assignment.subject }}</strong> &bull; Instructor: <strong style="color: var(--slate-800);">{{ assignment.faculty.name if assignment.faculty else 'Faculty' }}</strong>
+    </p>
+  </div>
+  <div>
+    {% if submission %}
+      <span class="badge badge-uploaded">
+        <span class="badge-dot"></span> Submitted on {{ submission.submission_date.strftime('%b %d, %Y') }}
+      </span>
+    {% elif assignment.is_past_deadline %}
+      <span class="badge badge-failed">
+        <span class="badge-dot"></span> Deadline Passed
+      </span>
+    {% else %}
+      <span class="badge" style="background: var(--slate-100); color: var(--slate-600); font-size: 0.75rem;">
+        <span class="badge-dot"></span> Pending Submission
+      </span>
+    {% endif %}
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+  <!-- Left Column: Assignment Overview & Questions List -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    
+    <!-- Metadata & Description -->
+    <div class="card">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900); margin: 0;">Assignment Information</h2>
+        <span class="badge" style="background: var(--primary-50); color: var(--primary-700); font-weight: 600; font-size: 0.75rem; font-family: var(--font-mono);">
+          {{ assignment.total_marks }} Total Marks
+        </span>
+      </div>
+      <div class="card-body" style="padding: 1.25rem;">
+        <div style="display: flex; gap: 2rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--slate-600); flex-wrap: wrap;">
+          <div>
+            <span style="font-weight: 600; color: var(--slate-800);">Due Date:</span>
+            <span style="{% if assignment.is_past_deadline %}color: var(--rose-600); font-weight:600;{% else %}color: var(--slate-800);{% endif %}">
+              {{ assignment.deadline.strftime('%A, %b %d, %Y at %I:%M %p') }}
+            </span>
+          </div>
+          <div>
+            <span style="font-weight: 600; color: var(--slate-800);">Questions:</span> {{ assignment.question_count }} Problems
+          </div>
+        </div>
+
+        {% if assignment.description %}
+          <div style="background-color: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.85rem; line-height: 1.5; white-space: pre-line; color: var(--slate-800);">
+            {{ assignment.description }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Questions List (STRICTLY CONFIDENTIAL: NO REFERENCE ANSWERS SHOWN TO STUDENTS) -->
+    <div class="card">
+      <div class="card-header">
+        <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900); margin: 0;">Assignment Questions ({{ assignment.question_count }})</h2>
+      </div>
+      <div class="card-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        {% for q in assignment.questions %}
+          <div style="background-color: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+              <div style="font-weight: 600; font-size: 0.9rem; color: var(--slate-900);">
+                Question {{ q.question_number }}
+              </div>
+              <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem; font-family: var(--font-mono); font-weight: 600;">
+                {{ q.maximum_marks }} Marks
+              </span>
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--slate-800); line-height: 1.5; white-space: pre-line; margin-bottom: 0.5rem;">
+              {{ q.question_text }}
+            </div>
+
+            {% if q.rubric %}
+              <div style="font-size: 0.75rem; color: var(--slate-600); background-color: var(--slate-50); padding: 0.4rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                <strong style="color: var(--slate-700);">Scoring Rubric:</strong> {{ q.rubric }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Submission Dropzone & Status -->
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    {% if submission %}
+      <div class="card">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900); margin: 0;">Your Submission</h2>
+          <span class="badge badge-uploaded" style="font-size: 0.75rem;">{{ submission.status }}</span>
+        </div>
+        <div class="card-body" style="padding: 1.25rem;">
+          <p style="font-size: 0.82rem; color: var(--slate-600); margin-bottom: 0.85rem; line-height: 1.45;">
+            Submitted on <strong>{{ submission.submission_date.strftime('%b %d, %Y at %I:%M %p') }}</strong>.
+          </p>
+
+          <div style="background-color: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 1rem;">
+            <div style="font-weight: 600; font-size: 0.82rem; color: var(--slate-900); margin-bottom: 0.15rem; word-break: break-all;">
+              {{ submission.original_filename }}
+            </div>
+            <div style="font-size: 0.72rem; color: var(--slate-400);">
+              File Size: {{ submission.file_size_display }}
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <a href="{{ url_for('student.download_submission', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank" style="justify-content: center;">
+              View Submitted PDF ↗
+            </a>
+            <a href="{{ url_for('student.submission_view', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" style="justify-content: center;">
+              View Status Receipt
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- In-App Camera Scanner Portal -->
+    <div class="card scanner-card" id="scanner-root" data-submit-url="{{ url_for('student.submit_scanned_assignment', assignment_id=assignment.assignment_id) }}">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--slate-900); margin: 0;">
+            {{ 'Re-scan Assignment' if submission else 'Scan Assignment' }}
+          </h2>
+        </div>
+        <span class="badge" style="background: var(--primary-50); color: var(--primary-700); font-weight: 600; font-size: 0.72rem;">
+          📷 Live Camera Scanner
+        </span>
+      </div>
+
+      <div class="card-body" style="padding: 1.25rem;">
+        <p style="font-size: 0.82rem; color: var(--slate-600); margin-bottom: 1rem; line-height: 1.45;">
+          Scan every page of your handwritten assignment using your camera. Adjust boundaries and reorder pages before final submission.
+        </p>
+
+        <!-- Camera Viewfinder Section -->
+        <div class="scanner-viewfinder-wrapper" id="scanner-viewfinder-wrapper" style="display: flex;">
+          <video id="scanner-video" class="scanner-video" autoplay playsinline muted></video>
+          
+          <div class="scanner-status-badge" id="camera-live-indicator" style="display: none;">
+            <span class="scanner-status-dot"></span> Live Camera
+          </div>
+
+          <div class="scanner-guide-overlay">
+            <div class="scanner-guide-text">Align document within the frame &bull; Hold still</div>
+            <div></div>
+          </div>
+        </div>
+
+        <!-- Camera Hardware Error Banner -->
+        <div id="camera-error-banner" class="scanner-info-banner danger" style="display: none; margin-top: 0.75rem;">
+          <span style="font-size: 1.1rem; line-height: 1;">⚠️</span>
+          <div style="flex: 1;">
+            <strong style="display: block; margin-bottom: 0.2rem;">Camera Unavailable</strong>
+            <span id="camera-error-message">Unable to access your camera device.</span>
+          </div>
+        </div>
+
+        <!-- Primary Camera Controls -->
+        <div class="scanner-control-bar" style="margin-top: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); padding: 0.75rem 1rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" id="start-camera-btn" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.35rem;">
+              📷 Start Camera
+            </button>
+            <button type="button" id="stop-camera-btn" class="btn btn-secondary btn-sm" style="display: none; align-items: center; gap: 0.35rem;">
+              ⏹ Pause
+            </button>
+            <button type="button" id="switch-camera-btn" class="btn btn-secondary btn-sm" style="display: none; align-items: center; gap: 0.35rem;" title="Switch Camera">
+              🔄 Switch
+            </button>
+          </div>
+
+          <div>
+            <button type="button" id="capture-page-btn" class="btn-shutter" disabled>
+              📸 Capture Page
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Crop & Perspective Adjustment Workspace -->
+        <div id="scanner-crop-workspace" class="scanner-crop-wrapper" style="display: none; margin-top: 1rem;">
+          <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; color: #f8fafc;">
+            <div style="font-size: 0.85rem; font-weight: 600;">
+              📐 Adjust Document Corners & Perspective
+            </div>
+            <div style="font-size: 0.72rem; color: var(--slate-400);">
+              Drag 4 corners to fit page
+            </div>
+          </div>
+
+          <div class="scanner-canvas-container">
+            <canvas id="crop-canvas" class="scanner-canvas"></canvas>
+          </div>
+
+          <!-- Crop Editor Toolbar -->
+          <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div class="scanner-toolbar-actions">
+              <button type="button" id="rotate-left-btn" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.6rem;" title="Rotate 90° Counter-Clockwise">
+                ↺ 90°
+              </button>
+              <button type="button" id="rotate-right-btn" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.6rem;" title="Rotate 90° Clockwise">
+                ↻ 90°
+              </button>
+              <button type="button" id="reset-crop-btn" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.6rem;" title="Reset Crop Frame">
+                Reset
+              </button>
+              <select id="filter-select" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.5rem; font-size: 0.75rem; background: #ffffff; color: var(--slate-800);">
+                <option value="enhanced">Clean Document (High Contrast)</option>
+                <option value="original">Original Colors</option>
+                <option value="grayscale">Grayscale</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" id="retake-page-btn" class="btn btn-secondary btn-sm" style="color: var(--rose-600);">
+                Retake
+              </button>
+              <button type="button" id="accept-page-btn" class="btn btn-primary btn-sm" style="background: var(--emerald-600); border-color: var(--emerald-600); font-weight: 600;">
+                ✓ Accept & Add Page
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-Page Scanned Pages Gallery Tray -->
+        <div id="scanned-pages-gallery" style="display: none; margin-top: 1.25rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden;">
+          <div class="scanner-gallery-header">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <strong style="font-size: 0.88rem; color: var(--slate-900);">Captured Pages</strong>
+              <span id="scanned-page-count" class="badge" style="background: var(--emerald-50); color: var(--emerald-700); font-weight: 700; font-size: 0.72rem;">
+                0 Pages
+              </span>
+            </div>
+            <button type="button" id="scan-another-page-btn" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">
+              + Add Another Page
+            </button>
+          </div>
+
+          <div id="scanned-pages-grid" class="scanner-pages-grid"></div>
+
+          <!-- Submission Progress Banner -->
+          <div id="submit-progress-banner" class="scanner-info-banner info" style="display: none; margin: 0.75rem 1.25rem;">
+            <span class="spinner-inline" style="width: 16px; height: 16px; border: 2px solid var(--primary-200); border-top-color: var(--primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block;"></span>
+            <div>
+              <strong>Compiling and Submitting Document...</strong>
+              <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.15rem;">
+                Generating PDF document and starting optical handwriting evaluation.
+              </div>
+            </div>
+          </div>
+
+          <!-- Submission Error Banner -->
+          <div id="submit-error-banner" class="scanner-info-banner danger" style="display: none; margin: 0.75rem 1.25rem;">
+            <span>⚠️</span>
+            <div id="submit-error-message" style="flex: 1;"></div>
+          </div>
+
+          <!-- Final Submit Button Action -->
+          <div style="padding: 1rem 1.25rem; background: #ffffff; border-top: 1px solid var(--border-subtle);">
+            <button type="button" id="submit-scan-btn" class="btn btn-primary btn-sm" style="width: 100%; padding: 0.65rem; font-weight: 600; font-size: 0.9rem;" disabled>
+              Submit Scanned Assignment &rarr;
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 0.85rem; font-size: 0.75rem; color: var(--slate-400); line-height: 1.4;">
+          Ensure handwritten pages are well-lit, fully visible, and free of glare. You can capture multiple pages in sequence before submitting.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Lightbox for Page Review -->
+<div id="scanner-preview-modal" class="scanner-modal-backdrop" style="display: none;">
+  <div class="scanner-modal-content">
+    <div class="scanner-modal-header">
+      <strong id="scanner-modal-title" style="font-size: 0.95rem; color: var(--slate-900);">Page Preview</strong>
+      <button type="button" id="close-scanner-modal-btn" class="btn-icon-sm" style="font-size: 1.1rem;">✕</button>
+    </div>
+    <div class="scanner-modal-body">
+      <img id="scanner-modal-img" src="" alt="Full size preview" />
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/camera_scanner.js') }}"></script>
+{% endblock %}
+

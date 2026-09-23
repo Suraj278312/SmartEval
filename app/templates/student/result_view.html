@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluation Result: {{ data.assignment_title }} – SmartEval{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 920px; margin-top: 0.5rem;">
+  
+  <!-- Breadcrumb & Top Actions -->
+  <div class="page-header" style="margin-bottom: 1.25rem;">
+    <div>
+      <div style="font-size: 0.8rem; color: var(--slate-400); margin-bottom: 0.25rem;">
+        <a href="{{ url_for('student.dashboard') }}" style="color: var(--slate-500);">&larr; Dashboard</a> / 
+        <a href="{{ url_for('student.submission_view', submission_id=submission.submission_id) }}" style="color: var(--slate-500);">Receipt #{{ submission.submission_id }}</a> / 
+        <span>Evaluation Scorecard</span>
+      </div>
+      <h1 class="page-header-title">{{ data.assignment_title }}</h1>
+      <p class="page-header-desc">
+        Course: <strong style="color: var(--slate-800);">{{ data.subject }}</strong> &bull; Submitted on {{ submission.submission_date.strftime('%B %d, %Y') }}
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.4rem; align-items: center;">
+      <button onclick="window.print()" class="btn btn-secondary btn-sm">
+        Print Scorecard
+      </button>
+      <a href="{{ url_for('student.download_submission', submission_id=submission.submission_id) }}" class="btn btn-secondary btn-sm" target="_blank">
+        Submitted PDF ↗
+      </a>
+    </div>
+  </div>
+
+  <!-- Header Banner Card -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-body" style="padding: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem;">
+        <div>
+          <span class="badge badge-published" style="font-size: 0.75rem; margin-bottom: 0.4rem; display: inline-block;">
+            <span class="badge-dot"></span> Official Published Result
+          </span>
+          <div style="font-size: 1.05rem; font-weight: 600; color: var(--slate-900);">
+            Performance Evaluation Summary
+          </div>
+          <div style="font-size: 0.82rem; color: var(--slate-500); margin-top: 0.15rem;">
+            Graded and moderated by course faculty.
+          </div>
+        </div>
+
+        <!-- Overall Score Card -->
+        <div style="text-align: right; background: var(--slate-50); padding: 1rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+            Total Score
+          </div>
+          <div style="font-size: 1.8rem; font-weight: 700; color: {% if data.percentage >= 75 %}var(--emerald-700){% elif data.percentage >= 50 %}var(--amber-700){% else %}var(--rose-700){% endif %}; line-height: 1; font-family: var(--font-mono);">
+            {{ data.total_obtained_marks }} <span style="font-size: 1rem; font-weight: 400; color: var(--slate-400);">/ {{ data.total_maximum_marks }}</span>
+          </div>
+          <div style="margin-top: 0.25rem; font-size: 0.8rem; font-weight: 600; color: var(--slate-700);">
+            {{ data.percentage }}% &bull; Grade: <span style="color: var(--primary-700); font-weight: 700;">{{ data.grade_letter }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overall Grounded Feedback Summary -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-header">
+      <h2 style="font-size: 0.95rem; font-weight: 600; margin: 0; color: var(--slate-900);">
+        Overall Evaluation & Performance Feedback
+      </h2>
+    </div>
+    <div class="card-body" style="padding: 1.25rem;">
+      
+      <!-- Grounded Feedback Paragraph -->
+      {% if data.overall_feedback %}
+        <p style="font-size: 0.88rem; line-height: 1.5; color: var(--slate-800); margin: 0 0 1rem 0;">
+          {{ data.overall_feedback }}
+        </p>
+      {% endif %}
+
+      <!-- Strengths & Growth Areas Grid -->
+      {% if data.overall_strengths or data.overall_improvements %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem;">
+          
+          {% if data.overall_strengths %}
+            <div style="padding: 0.75rem 0.85rem; background: var(--emerald-50); border: 1px solid var(--emerald-200); border-radius: var(--radius-sm);">
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--emerald-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                Demonstrated Strengths
+              </div>
+              <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--emerald-900); line-height: 1.4;">
+                {% for s in data.overall_strengths %}
+                  <li>{{ s }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          {% if data.overall_improvements %}
+            <div style="padding: 0.75rem 0.85rem; background: var(--amber-50); border: 1px solid var(--amber-200); border-radius: var(--radius-sm);">
+              <div style="font-size: 0.7rem; font-weight: 600; color: var(--amber-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                Concepts to Review
+              </div>
+              <ul style="margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--amber-900); line-height: 1.4;">
+                {% for im in data.overall_improvements %}
+                  <li>{{ im }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+        </div>
+      {% endif %}
+
+      <!-- Instructor Personalized Note -->
+      {% if data.faculty_summary_feedback %}
+        <div style="padding: 0.75rem 0.85rem; background: var(--primary-50); border: 1px solid var(--primary-200); border-radius: var(--radius-sm);">
+          <div style="font-size: 0.7rem; font-weight: 600; color: var(--primary-800); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+            Instructor's Overall Note
+          </div>
+          <div style="font-size: 0.85rem; color: var(--primary-900); line-height: 1.45;">
+            {{ data.faculty_summary_feedback }}
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Question-by-Question Detailed Performance -->
+  <div style="margin-bottom: 1.5rem;">
+    <h2 style="font-size: 1.1rem; font-weight: 600; color: var(--slate-900); margin-bottom: 0.85rem;">
+      Itemized Question Breakdown
+    </h2>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      {% for q in data.questions %}
+        <div class="card" style="border-left: 3px solid {% if q.score_percentage >= 75 %}var(--emerald-600){% elif q.score_percentage >= 50 %}var(--amber-600){% else %}var(--rose-600){% endif %};">
+          
+          <!-- Question Header -->
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-weight: 600; font-size: 0.92rem; color: var(--slate-900);">
+                Question {{ q.question_number }}
+              </span>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span class="badge" style="background: var(--slate-100); color: var(--slate-700); font-size: 0.75rem;">
+                Max: {{ q.maximum_marks }} pts
+              </span>
+              <span class="badge" style="font-size: 0.75rem; font-weight: 600; font-family: var(--font-mono); background: {% if q.score_percentage >= 75 %}var(--emerald-50); color: var(--emerald-700); border: 1px solid var(--emerald-200);{% elif q.score_percentage >= 50 %}var(--amber-50); color: var(--amber-700); border: 1px solid var(--amber-200);{% else %}var(--rose-50); color: var(--rose-700); border: 1px solid var(--rose-200);{% endif %};">
+                Score: {{ q.final_score }} / {{ q.maximum_marks }} ({{ q.score_percentage }}%)
+              </span>
+            </div>
+          </div>
+
+          <div class="card-body" style="padding: 1.1rem;">
+            
+            <!-- Question Prompt -->
+            <div style="margin-bottom: 0.85rem; padding: 0.65rem 0.85rem; background: var(--slate-50); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+                Question Prompt
+              </div>
+              <div style="font-size: 0.85rem; color: var(--slate-800); line-height: 1.45;">
+                {{ q.question_text }}
+              </div>
+            </div>
+
+            <!-- Student Transcribed Answer -->
+            <div style="margin-bottom: 0.85rem;">
+              <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+                Your Answer (Recognized OCR Transcript)
+              </div>
+              {% if q.extracted_answer and q.extracted_answer.strip() %}
+                <div style="padding: 0.75rem 0.85rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.5; color: var(--slate-800); white-space: pre-wrap; max-height: 160px; overflow-y: auto;">{{ q.extracted_answer }}</div>
+              {% else %}
+                <div style="padding: 0.65rem 0.85rem; background: var(--rose-50); border: 1px solid var(--rose-200); border-radius: var(--radius-sm); color: var(--rose-700); font-size: 0.82rem;">
+                  No handwritten answer was recognized for this question.
+                </div>
+              {% endif %}
+            </div>
+
+            <!-- Question Feedback -->
+            {% if q.feedback %}
+              <div style="padding: 0.75rem 0.85rem; background: var(--slate-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 0.85rem;">
+                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-600); letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+                  Question Feedback & Evaluation Note
+                </div>
+                <div style="font-size: 0.85rem; color: var(--slate-800); line-height: 1.45;">
+                  {{ q.feedback }}
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Rubric Breakdown Table (if available) -->
+            {% if q.criteria_scores %}
+              <div>
+                <div style="font-size: 0.7rem; text-transform: uppercase; font-weight: 600; color: var(--slate-500); letter-spacing: 0.05em; margin-bottom: 0.3rem;">
+                  Scoring Criteria Breakdown
+                </div>
+                <div style="border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); overflow: hidden;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead>
+                      <tr style="background: var(--slate-50); text-align: left; color: var(--slate-700);">
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle);">Criterion</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle); text-align: center; width: 80px;">Marks</th>
+                        <th style="padding: 0.4rem 0.65rem; border-bottom: 1px solid var(--border-subtle);">Evaluation Comment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for c in q.criteria_scores %}
+                        <tr style="border-bottom: 1px solid var(--border-subtle);">
+                          <td style="padding: 0.4rem 0.65rem; font-weight: 500; color: var(--slate-800);">{{ c.name }}</td>
+                          <td style="padding: 0.4rem 0.65rem; text-align: center; font-weight: 600; color: var(--primary-700); font-family: var(--font-mono);">
+                            {{ c.awarded_marks }} / {{ c.max_marks }}
+                          </td>
+                          <td style="padding: 0.4rem 0.65rem; color: var(--slate-600);">{{ c.reason }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            {% endif %}
+
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Bottom Return Button -->
+  <div style="margin-bottom: 2.5rem; text-align: center;">
+    <a href="{{ url_for('student.dashboard') }}" class="btn btn-secondary btn-sm">
+      &larr; Return to Student Dashboard
+    </a>
+  </div>
+
+</div>
+{% endblock %}

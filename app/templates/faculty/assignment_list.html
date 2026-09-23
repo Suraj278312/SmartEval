@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Assignments – SmartEval{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <div>
+    <h1 class="page-header-title">Coursework Assignments</h1>
+    <p class="page-header-desc">Configure questions, reference solutions, rubrics, and manage publication states.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('faculty.create_assignment') }}" class="btn btn-primary btn-sm">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      + New Assignment
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div style="font-weight: 600; font-size: 0.95rem; color: var(--slate-900);">
+      Coursework Registry ({{ assignments|length }})
+    </div>
+  </div>
+
+  <div class="card-body" style="padding: 0;">
+    {% if assignments %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Assignment</th>
+              <th>Subject</th>
+              <th>Questions</th>
+              <th>Marks</th>
+              <th>Deadline</th>
+              <th>Status</th>
+              <th>Submissions</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assignments %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" style="font-weight: 600; color: var(--slate-900);">
+                    {{ a.title }}
+                  </a>
+                  <div style="font-size: 0.75rem; color: var(--slate-400); margin-top: 2px;">
+                    Created {{ a.created_at.strftime('%b %d, %Y') }}
+                  </div>
+                </td>
+                <td>
+                  <span style="font-size: 0.85rem; color: var(--slate-700);">{{ a.subject }}</span>
+                </td>
+                <td>
+                  <span style="font-size: 0.85rem; color: var(--slate-600);">
+                    {{ a.question_count }} Qs
+                  </span>
+                </td>
+                <td>
+                  <span style="font-weight: 600; color: var(--slate-800); font-family: var(--font-mono); font-size: 0.88rem;">{{ a.total_marks }}</span>
+                  <span style="font-size: 0.75rem; color: var(--slate-500);">pts</span>
+                </td>
+                <td>
+                  <div style="font-size: 0.85rem; {% if a.is_past_deadline %}color: var(--rose-600); font-weight: 600;{% else %}color: var(--slate-700);{% endif %}">
+                    {{ a.deadline.strftime('%b %d, %Y') }}
+                    <span style="font-size: 0.72rem; color: var(--slate-400); display: block;">{{ a.deadline.strftime('%I:%M %p') }}</span>
+                  </div>
+                  {% if a.is_past_deadline %}
+                    <span class="badge badge-failed" style="font-size: 0.65rem; margin-top: 2px;">Closed</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if a.published %}
+                    <span class="badge badge-published"><span class="badge-dot"></span> Published</span>
+                  {% else %}
+                    <span class="badge badge-draft"><span class="badge-dot"></span> Draft</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" style="font-size: 0.85rem; font-weight: 600; color: var(--primary-600);">
+                    {{ a.submissions|length }} submitted
+                  </a>
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: 0.3rem; align-items: center;">
+                    <a href="{{ url_for('faculty.assignment_submissions', assignment_id=a.assignment_id) }}" class="btn btn-secondary btn-sm" title="Review Submissions">
+                      Review
+                    </a>
+
+                    <form method="POST" action="{{ url_for('faculty.toggle_publish', assignment_id=a.assignment_id) }}" style="display: inline; margin: 0;">
+                      <button type="submit" class="btn btn-secondary btn-sm" title="{{ 'Unpublish to draft' if a.published else 'Publish for students' }}">
+                        {{ 'Unpublish' if a.published else 'Publish' }}
+                      </button>
+                    </form>
+
+                    <a href="{{ url_for('faculty.edit_assignment', assignment_id=a.assignment_id) }}" class="btn btn-secondary btn-sm" title="Edit Assignment">
+                      Edit
+                    </a>
+
+                    <form method="POST" action="{{ url_for('faculty.delete_assignment', assignment_id=a.assignment_id) }}" class="confirm-delete" data-confirm-message="Are you sure you want to delete assignment '{{ a.title }}'? All attached questions and student submissions will be permanently deleted." style="display: inline; margin: 0;">
+                      <button type="submit" class="btn btn-secondary btn-sm" title="Delete Assignment" style="color: var(--rose-600);">
+                        Delete
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <div class="empty-title">No assignments found</div>
+        <p class="empty-desc">Create your first assignment with structured questions and grading criteria.</p>
+        <div style="margin-top: 1rem;">
+          <a href="{{ url_for('faculty.create_assignment') }}" class="btn btn-primary btn-sm">+ Create Assignment</a>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
